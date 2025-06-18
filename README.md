@@ -6,18 +6,18 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 ### Summary Functions:
 
 **1. ROS (panda3gpu):**
-1.1 Access point, set prompt and parameters, start feedback loop
-1.2 Get image data
-1.3 Send request to VLA
-1.4 Get results from VLA
+1.1 Access point, set prompt and parameters, start feedback loop  
+1.2 Get image data  
+1.3 Send request to VLA  
+1.4 Get results from VLA  
 1.5 Pass instructions on to controller
 
 **2. VLA (Avalon):**
-2.1 Access point, starting services (loop)
-2.2 Receiving data
-2.3 Passing data on to VLA
-2.4 Getting results from VLA
-2.5 Sending results back
+2.1 Access point, starting services (loop)  
+2.2 Receiving data  
+2.3 Passing data on to VLA  
+2.4 Getting results from VLA  
+2.5 Sending results back  
 
 ---
 
