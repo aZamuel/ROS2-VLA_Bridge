@@ -5,14 +5,14 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 
 ### Summary Functions:
 
-**1. ROS (panda3gpu):**
+**1. ROS (panda3gpu):**  
 1.1 Access point, set prompt and parameters, start feedback loop  
 1.2 Get image data  
 1.3 Send request to VLA  
 1.4 Get results from VLA  
 1.5 Pass instructions on to controller
 
-**2. VLA (Avalon):**
+**2. VLA (Avalon):**  
 2.1 Access point, starting services (loop)  
 2.2 Receiving data  
 2.3 Passing data on to VLA  
@@ -21,14 +21,13 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 
 ---
 
-### Questions / Thoughts:
+### How to Start the requester
 
-* What communication options should be considered / might already exist in ROS2?
-* For coding and initial communication: SSH (tunneling)?
-* Backend with Docker? With ROS2 as a node or as an independent application?
-* One repo, two Docker containers?
-* Adhere to Avalon best practices for environments, repositories, and data!
-* Two packages?
-* What nodes?
-* What services / topics?
+* As a starting point I used the ros2_jazzy Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
+docker build -t ros2_jazzy_vla_bridge ROS2-VLA_Bridge_Requester/  
+docker run -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged ros2_jazzy_vla_bridge  
+
+* To pass on any display correctly one should also run  
+xhost +local:docker  
+on the host system.
 
