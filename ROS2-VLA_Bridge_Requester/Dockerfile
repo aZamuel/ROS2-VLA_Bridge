@@ -76,6 +76,7 @@ RUN sudo apt install -y \
     nano \
     wget \
     curl \
+    unzip \
     libeigen3-dev \
     libpoco-dev
 
