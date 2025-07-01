@@ -205,3 +205,12 @@ RUN echo "source /root/ws_moveit/install/setup.bash" >> ~/.bashrc
 RUN echo 'export Franka_DIR=$SOURCE_CODE_DIR/libfranka/build' >> ~/.bashrc
 
 WORKDIR $COLCON_WS
+
+# copy VLA Requester package into the workspace
+#RUN mkdir -p src/ros2_vla_bridge_requester
+COPY Requester/ ./src/ros2_vla_bridge_requester/
+
+# install package dependencies and build
+RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
+    rosdep install --from-paths src/ros2_vla_bridge_requester -i -y --rosdistro $ROS_DISTRO && \
+    colcon build --packages-select ros2_vla_bridge_requester
