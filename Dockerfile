@@ -206,6 +206,13 @@ RUN echo 'export Franka_DIR=$SOURCE_CODE_DIR/libfranka/build' >> ~/.bashrc
 
 WORKDIR $COLCON_WS
 
+# Setup VLA Wrapper for dev in container
+COPY Wrapper $COLCON_WS/VLA_Wrapper
+RUN apt-get update && apt-get install -y python3-pip
+RUN python3 -m pip install --break-system-packages -r $COLCON_WS/VLA_Wrapper/requirements.txt
+EXPOSE 8000
+#CMD ["python3", "app.py"]
+
 # copy VLA Requester package into the workspace
 #RUN mkdir -p src/ros2_vla_bridge_requester
 COPY Requester/ ./src/ros2_vla_bridge_requester/
