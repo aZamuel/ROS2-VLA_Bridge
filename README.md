@@ -7,7 +7,7 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 
 * As a starting point I used the ros2_jazzy Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
 docker build -t ros2_jazzy_vla_bridge .  
-docker run -it -rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged ros2_jazzy_vla_bridge  
+docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged ros2_jazzy_vla_bridge  
 
 * To pass on any display correctly one should also run  
 xhost +local:docker  

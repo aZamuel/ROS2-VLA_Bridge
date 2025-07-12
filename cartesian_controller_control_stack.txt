@@ -1,0 +1,80 @@
+# Control Stack mit Cartesian Controllern:
+Hier jetzt der Control Stack mit cartesian controllern:
+
+Hol dir die aktuelle version von https://github.com/David0tt/RobotReplicationDockerfiles
+
+dann das image für multipanda_ros2 bauen und ausführen:
+
+    xhost +local:docker # for xhost support to enable showing RViz
+    docker build -t multipanda_ros2 multipanda_ros2/
+    docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged multipanda_ros2
+    # du kannst das --rm weg lassen, wenn du länger an dem container experimentieren willst
+
+
+# in the container:
+
+    ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
+
+# rviz should start 
+
+    ros2 topic list # should show the /panda/panda_cartesian_impedance_controller/desired_pose topic
+
+# To move the arm you can publish to this topic, e.g. manually: 
+
+  ros2 topic pub /panda/panda_cartesian_impedance_controller/desired_pose multi_mode_control_msgs/msg/CartesianImpedanceGoal "{
+    pose: {
+      position: {
+        x: 0.682,
+        y: -0.015,
+        z: 0.390
+      },
+      orientation: {
+        x: 0.999,
+        y: -0.014,
+        z: 0.041, 
+        w: -0.001
+      }
+    },
+    q_n: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }" -1
+
+- note, 
+    - that the target pose may only have a maximum distance of 0.1m from the current pose
+    - the target frame is panda_hand_tcp
+    - current pose can be found with 
+        - ros2 run tf2_ros tf2_echo panda_link0 panda_hand_tcp
+    - the q_n is used as the desired joint_configuration to solve null-space redundancies and should be modified to more sensible values for actual deployment, but just for testing this works fine.
+
+Ich habe ein minimales Beispielpackage, das control mit einer SpaceMouse macht. Also ganz high level nimmt es die Befehle von topic 
+
+    ros2 topic /spacenav/twist
+
+und die aktuelle position von
+
+    tf2_ros tf2_echo panda_link0 panda_hand_tcp
+
+transformiert den twist etwas und addiert ihn auf die die aktuelle position auf und sendet diese neue position an
+
+    ros2 topic /panda/panda_cartesian_impedance_controller/desired_pose
+
+Um es zu installieren und auszuprobieren:
+
+im container:
+
+    cd ~/humble_ws/src
+    git clone https://github.com/David0tt/panda_spacemouse_control/
+    cd ~/humble_ws
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+dann drei terminals im container öffnen
+
+    # umgebung starten
+    ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
+
+    # Spacenav node starten 
+    ros2 run spacenav spacenav_node
+
+    # den neuen spacenav control node starten, der die movement commands forwarded
+    ros2 launch panda_spacemouse_control spacemouse_control.launch.py
+
+Um das ganze auszuprobieren musst du dir selbstverständlich die spacemouse bei mir holen und sie anstecken
