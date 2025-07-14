@@ -16,8 +16,8 @@ This is the ROS2 side of the Bridge. It allows to set a prompt, start a request 
 ### How to Start the requester
 
 * As a starting point I used the ros2_jazzy Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
-docker build -t ros2_jazzy_vla_bridge ROS2-VLA_Bridge_Requester/  
-docker run -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged ros2_jazzy_vla_bridge  
+docker build -t ros2_vla_bridge ROS2-VLA_Bridge_Requester/  
+docker run -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged ros2_vla_bridge  
 
 * To pass on any display correctly one should also run  
 xhost +local:docker  

@@ -10,7 +10,11 @@ setup(
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml', 'README_Requester.md']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'requests',
+        'opencv-python'
+    ],
     zip_safe=True,
     maintainer='UNKNOWN',
     maintainer_email='unknown@example.com',
