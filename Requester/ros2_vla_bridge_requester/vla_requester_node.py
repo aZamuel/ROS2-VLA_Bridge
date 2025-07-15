@@ -16,7 +16,7 @@ class VLARequester(Node):
 
         # Configuration
         self.prompt = "Default prompt"
-        self.backend_url = "http://localhost:8000/api/vla_request"
+        self.backend_url = "http://localhost:8000/predict"
         self.request_interval = 1.0  # seconds
 
         # Internal state
@@ -29,7 +29,7 @@ class VLARequester(Node):
         self.create_subscription(JointState, '/joint_states', self.joint_state_callback, 10)
 
         # Timer for periodic requests
-        self.timer = self.create_timer(self.request_interval, self.send_request_loop)
+        self.timer = self.create_timer(self.request_interval, self.send_request)
 
     def generate_dummy_image(self):
         # Create a dummy black image using OpenCV
@@ -49,7 +49,7 @@ class VLARequester(Node):
     def joint_state_callback(self, msg):
         self.latest_joint_angles = list(msg.position)
 
-    def send_request_loop(self):
+    def send_request(self):
         if self.latest_image is None or not self.latest_joint_angles:
             self.get_logger().warn("Waiting for image and joint states...")
             return
