@@ -16,12 +16,12 @@ class VLARequester(Node):
 
         # Configuration
         self.prompt = "Default prompt"
-        self.backend_url = "http://localhost:5000/api/vla_request"
+        self.backend_url = "http://localhost:8000/api/vla_request"
         self.request_interval = 1.0  # seconds
 
         # Internal state
-        self.latest_image = None
-        self.latest_joint_angles = []
+        self.latest_image = self.generate_dummy_image()
+        self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
         self.bridge = CvBridge()
 
         # Subscribers
@@ -30,6 +30,13 @@ class VLARequester(Node):
 
         # Timer for periodic requests
         self.timer = self.create_timer(self.request_interval, self.send_request_loop)
+
+    def generate_dummy_image(self):
+        # Create a dummy black image using OpenCV
+        import numpy as np
+        dummy_image = np.zeros((480, 640, 3), dtype=np.uint8)
+        _, buffer = cv2.imencode('.jpg', dummy_image)
+        return base64.b64encode(buffer).decode('utf-8')
 
     def image_callback(self, msg):
         try:
