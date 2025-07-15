@@ -63,9 +63,9 @@ class VLARequester(Node):
         try:
             response = requests.post(self.backend_url, json=payload)
             if response.status_code == 200:
-                self.get_logger().info("Request successfully sent to backend.")
+                self.get_logger().info(f"Request successfull: {response.json()}")
             else:
-                self.get_logger().warn(f"Backend response: {response.status_code}")
+                self.get_logger().warn(f"Backend error: {response.status_code}")
         except Exception as e:
             self.get_logger().error(f"Failed to send request: {e}")
 

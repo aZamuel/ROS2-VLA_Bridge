@@ -7,10 +7,12 @@ vla = VLAWrapper(model_name="pi0")
 @app.route("/predict", methods=["POST"])
 def predict():
     instruction = request.json.get("prompt")
+    joint_angles = request.json.get("joint_angles")
+    image_jason = request.json.get("image")
     if not instruction:
         return jsonify({"error": "No instruction provided"}), 400
 
-    result = vla.predict(image=None, instruction=instruction)
+    result = vla.predict(image=image_jason, instruction=instruction)
     return jsonify(result)
 
 if __name__ == "__main__":
