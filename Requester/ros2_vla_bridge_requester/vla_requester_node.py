@@ -7,17 +7,20 @@ import requests
 import base64
 import cv2
 from cv_bridge import CvBridge
+from std_srvs.srv import SetBool
 
 
 class VLARequester(Node):
     def __init__(self):
         super().__init__('vla_requester')
         self.get_logger().info('VLA Requester node has been started.')
+        self.create_service(SetBool, 'vla_requester/toggle', self.handle_toggle)
 
         # Configuration
         self.prompt = "Default prompt"
         self.backend_url = "http://localhost:8000/predict"
         self.request_interval = 1.0  # seconds
+        self.active = False  # Initially stopped
 
         # Internal state
         self.latest_image = self.generate_dummy_image()
@@ -49,7 +52,18 @@ class VLARequester(Node):
     def joint_state_callback(self, msg):
         self.latest_joint_angles = list(msg.position)
 
+    def handle_toggle(self, request, response):
+        self.active = request.data  # True to start, False to stop
+        state_str = "started" if self.active else "stopped"
+        self.get_logger().info(f"VLA Requester has been {state_str} by service call.")
+        response.success = True
+        response.message = f"Requester {state_str}."
+        return response
+
     def send_request(self):
+        if not self.active:
+            return  # Skip if inactive
+    
         if self.latest_image is None or not self.latest_joint_angles:
             self.get_logger().warn("Waiting for image and joint states...")
             return
