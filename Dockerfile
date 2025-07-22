@@ -242,7 +242,10 @@ RUN source ~/.bashrc \
 RUN sudo apt-get update
 RUN sudo apt-get install libbluetooth-dev libcwiid-dev -y 
 RUN sudo apt install libx11-dev libxi-dev libxtst-dev libgl1-mesa-dev -y 
-RUN sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater -y 
+RUN sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater -y
+
+RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
+
 RUN cd ~/source_code  \
     && git clone https://github.com/FreeSpacenav/spacenavd \
     && cd spacenavd \
