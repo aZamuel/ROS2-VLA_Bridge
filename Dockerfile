@@ -297,6 +297,7 @@ COPY Requester/ src/ros2_vla_bridge_requester/
 RUN apt-get update && apt-get install -y \
      ros-${ROS_DISTRO}-cv-bridge
 RUN pip install requests opencv-python
+RUN pip install scipy
 
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \

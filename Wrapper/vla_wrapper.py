@@ -36,8 +36,11 @@ class VLAWrapper:
         control_output = {
             "delta_x": 0.0,
             "delta_y": 0.0,
-            "delta_z": 0.0,
-            "delta_yaw": 0.0
+            "delta_z": 0.05,
+            "delta_roll": 0.0,
+            "delta_pitch": 0.0,
+            "delta_yaw": 0.0,
+            "delta_gripper": 0.5
         }
 
         logger.info(f"Returning dummy control output: {control_output}")
