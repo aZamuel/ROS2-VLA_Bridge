@@ -11,6 +11,7 @@ from std_srvs.srv import SetBool
 from multi_mode_control_msgs.msg import CartesianImpedanceGoal
 from scipy.spatial.transform import Rotation as R
 from geometry_msgs.msg import PoseStamped
+from tf2_ros import Buffer, TransformListener
 
 
 class VLARequester(Node):
@@ -43,6 +44,10 @@ class VLARequester(Node):
 
         # Timer for periodic requests
         self.timer = self.create_timer(self.request_interval, self.send_request)
+
+        # TF listener setup
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
     def generate_dummy_image(self):
         # Create a dummy black image using OpenCV
@@ -147,6 +152,7 @@ class VLARequester(Node):
             self.get_logger().error(f"Failed to get current pose: {e}")
             return None
 
+    @staticmethod
     def compute_absolute_pose(current_pose: PoseStamped, delta: dict):
         """
         Compute absolute pose from current pose and delta values.
