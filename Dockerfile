@@ -297,11 +297,20 @@ EXPOSE 8000
 #RUN mkdir -p src/ros2_vla_bridge_requester
 COPY Requester/ src/ros2_vla_bridge_requester/
 
+# Install cv_bridge (ROS) and ensure OpenCV compatibility
 RUN apt-get update && apt-get install -y \
      ros-${ROS_DISTRO}-cv-bridge
-RUN pip install requests opencv-python
+
+# Remove conflicting system OpenCV packages
+RUN apt-get remove -y python3-opencv libopencv-dev libopencv-* opencv-data || true
+
+# Reinstall NumPy and OpenCV via pip to ensure cv_bridge compatibility
+RUN pip install --force-reinstall "numpy<2" opencv-python requests
+
+RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
 
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rosdep install --from-paths src/ros2_vla_bridge_requester -i -y --rosdistro $ROS_DISTRO && \
+    apt-get install -y ros-$ROS_DISTRO-cv-bridge && \
     colcon build --packages-select ros2_vla_bridge_requester
