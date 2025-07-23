@@ -33,9 +33,10 @@ class VLAWrapper:
             decoded_image = None
 
         # Show image for testing
-        if decoded_image is not None:
-            cv2.imshow("Decoded Image", decoded_image)
-            cv2.waitKey(10)
+        #if decoded_image is not None:
+        #    cv2.imshow("Decoded Image", decoded_image)
+        #    cv2.waitKey(10)
+        
         """
         Perform inference using the VLA model.
 
