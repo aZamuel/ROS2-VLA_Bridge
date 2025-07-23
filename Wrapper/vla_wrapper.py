@@ -1,5 +1,8 @@
 import logging
 from typing import Any, Dict
+import base64
+import cv2
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
@@ -19,6 +22,20 @@ class VLAWrapper:
         return None  # Replace with actual model
 
     def predict(self, image: Any, instruction: str) -> Dict[str, float]:
+        # Decode Base64 image
+        try:
+            image_data = base64.b64decode(image)
+            np_arr = np.frombuffer(image_data, np.uint8)
+            decoded_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            logger.info("Image decoded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to decode image: {e}")
+            decoded_image = None
+
+        # Show image for testing
+        if decoded_image is not None:
+            cv2.imshow("Decoded Image", decoded_image)
+            cv2.waitKey(10)
         """
         Perform inference using the VLA model.
 
@@ -36,8 +53,11 @@ class VLAWrapper:
         control_output = {
             "delta_x": 0.0,
             "delta_y": 0.0,
-            "delta_z": 0.0,
-            "delta_yaw": 0.0
+            "delta_z": 0.05,
+            "delta_roll": 0.0,
+            "delta_pitch": 0.0,
+            "delta_yaw": 0.0,
+            "delta_gripper": 0.5
         }
 
         logger.info(f"Returning dummy control output: {control_output}")
