@@ -309,6 +309,8 @@ RUN pip install --force-reinstall "numpy<2" opencv-python requests
 
 RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
 
+RUN pip install scipy
+
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rosdep install --from-paths src/ros2_vla_bridge_requester -i -y --rosdistro $ROS_DISTRO && \
