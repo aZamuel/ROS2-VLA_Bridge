@@ -5,23 +5,20 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 ## How to ...
 ---
 
-### ... start the requester node
+### ... start the client node
 
 * As a starting point I used the ros2_multipanda Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
-docker build -t ros2_vla_bridge .  
+docker build -t ros2_vla_bridge Docker/  
 docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged --device=/dev/bus/usb ros2_vla_bridge  
 
 * To pass on any display correctly one should also run  
 xhost +local:docker  
-on the host system.
-
-* In the container  
-source /opt/ros/humble/setup.bash  
-source /root/humble_ws/install/setup.bash
+on the host system.  
 
 * Now you can start nodes (each In a new Terminal):  
-ros2 run ros2_vla_bridge_requester vla_requester_node  
+ros2 run vla_client vla_bridge_node  
 ros2 run realsense2_camera realsense2_camera_node
+ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 
 ### ... open new Terminal in docker
 
@@ -29,9 +26,9 @@ ros2 run realsense2_camera realsense2_camera_node
 
 * docker exec -it <container (Tab)> "bin/bash"
 
-### ... use the requester node
+### ... use the client node
 
-* The vla_requester_node is startet inactive and with dummy values:  
+* The vla_bridge_node is startet inactive and with dummy values:  
     self.prompt = "Default prompt"  
     self.backend_url = "http://localhost:8000/predict"              # Flask route for VLA (still needs to be started)  
     self.request_interval = 1.0                                     # seconds  
@@ -41,9 +38,9 @@ ros2 run realsense2_camera realsense2_camera_node
     self.bridge = CvBridge()  
 
 * To start the request loop:  
-    ros2 service call /vla_requester/toggle std_srvs/srv/SetBool "{data: true}"  
+    ros2 service call /vla_client/toggle std_srvs/srv/SetBool "{data: true}"  
 
-### ... start the VLA Wrapper
+### ... start the Backend
 
 * For now the Flask app can be started in the container or an the host system.  
 
@@ -51,6 +48,6 @@ ros2 run realsense2_camera realsense2_camera_node
 On Container ~/humble_ws:  
 python3 VLA_Wrapper/app.py  
 Or in the Repo:  
-python3 Wrapper/app.py
+python3 Backend/app.py
 
 ---

@@ -268,9 +268,9 @@ RUN cd ~/humble_ws/src/ && \
 
 
 # TODO copy small changes that are required to launch
-COPY single_multimode.yaml /root/humble_ws/src/multipanda_ros2/franka_bringup/config/real/single_multimode.yaml
-COPY franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/franka.launch.py
-COPY multimode_franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/multimode_franka.launch.py
+COPY Bridge/vla_client/config/single_multimode.yaml /root/humble_ws/src/multipanda_ros2/franka_bringup/config/real/single_multimode.yaml
+COPY Bridge/vla_client/launch/franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/franka.launch.py
+COPY Bridge/vla_client/launch/multimode_franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/multimode_franka.launch.py
 
 
 # ENV XDG_RUNTIME_DIR=/tmp/${UID}
@@ -287,15 +287,15 @@ RUN echo 'spacenavd' >> ${HOMEDIR}/.bashrc
 WORKDIR /root/humble_ws
 
 # Setup VLA Wrapper for dev in container
-COPY Wrapper/ VLA_Wrapper
+COPY ./Backend VLA_Wrapper/
 RUN apt-get update && apt-get install -y python3-pip
 RUN python3 -m pip install -r VLA_Wrapper/requirements.txt
 EXPOSE 8000
-#CMD ["python3", "app.py"]
+#CMD ["ros2", "run", "vla_client", "vla_bridge_node"]
 
 # copy VLA Requester package into the workspace
-#RUN mkdir -p src/ros2_vla_bridge_requester
-COPY Requester/ src/ros2_vla_bridge_requester/
+COPY ./Bridge/vla_client /ros2_ws/src/vla_client
+COPY ./Bridge/vla_interfaces /ros2_ws/src/vla_interfaces
 
 # Install cv_bridge (ROS) and ensure OpenCV compatibility
 RUN apt-get update && apt-get install -y \
@@ -313,6 +313,6 @@ RUN pip install scipy
 
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
-    rosdep install --from-paths src/ros2_vla_bridge_requester -i -y --rosdistro $ROS_DISTRO && \
+    rosdep install --from-paths src --ignore-src -r -y --rosdistro $ROS_DISTRO && \
     apt-get install -y ros-$ROS_DISTRO-cv-bridge && \
-    colcon build --packages-select ros2_vla_bridge_requester
+    colcon build --packages-select vla_client
