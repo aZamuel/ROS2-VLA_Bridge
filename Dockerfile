@@ -287,15 +287,15 @@ RUN echo 'spacenavd' >> ${HOMEDIR}/.bashrc
 WORKDIR /root/humble_ws
 
 # Setup VLA Wrapper for dev in container
-COPY ./Backend VLA_Wrapper/
+COPY ./Backend ./VLA_Wrapper/
 RUN apt-get update && apt-get install -y python3-pip
 RUN python3 -m pip install -r VLA_Wrapper/requirements.txt
 EXPOSE 8000
 #CMD ["ros2", "run", "vla_client", "vla_bridge_node"]
 
 # copy VLA Requester package into the workspace
-COPY ./Bridge/vla_client /ros2_ws/src/vla_client
-COPY ./Bridge/vla_interfaces /ros2_ws/src/vla_interfaces
+COPY ./Bridge/vla_client ./src/vla_client
+COPY ./Bridge/vla_interfaces ./src/vla_interfaces
 
 # Install cv_bridge (ROS) and ensure OpenCV compatibility
 RUN apt-get update && apt-get install -y \
@@ -310,6 +310,11 @@ RUN pip install --force-reinstall "numpy<2" opencv-python requests
 RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
 
 RUN pip install scipy
+
+#spacenavd faxen
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+    spacenavd libspnav-dev libsdl2-dev
 
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
