@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>vla_client</name>
-  <version>0.0.0</version>
+  <version>0.0.1</version>
   <description>ROS2 node to interface with a VLA backend and publish motion commands</description>
 
-  <maintainer email="your@email.com">Your Name</maintainer>
+  <maintainer email="you@example.com">Your Name</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
@@ -13,7 +13,7 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
-  <exec_depend>vla_interfaces</exec_depend> <!-- if you use custom services -->
+  <exec_depend>vla_interfaces</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

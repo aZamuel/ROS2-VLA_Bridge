@@ -8,7 +8,7 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 ### ... start the client node
 
 * As a starting point I used the ros2_multipanda Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
-docker build -t ros2_vla_bridge Docker/  
+docker build -t ros2_vla_bridge .  
 docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged --device=/dev/bus/usb ros2_vla_bridge  
 
 * To pass on any display correctly one should also run  
@@ -46,8 +46,8 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 
 * In new Terminal:  
 On Container ~/humble_ws:  
-python3 VLA_Wrapper/app.py  
+python3 VLA_Wrapper/vla_server.py  
 Or in the Repo:  
-python3 Backend/app.py
+python3 Backend/vla_server.py
 
 ---
