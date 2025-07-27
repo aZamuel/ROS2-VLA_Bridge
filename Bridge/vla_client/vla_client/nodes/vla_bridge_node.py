@@ -14,7 +14,7 @@ from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 
 
-class VLARequester(Node):
+class VLABridgeNode(Node):
     def __init__(self):
         super().__init__('vla_requester')
         self.get_logger().info('VLA Requester node has been started.')
@@ -205,7 +205,7 @@ class VLARequester(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = VLARequester()
+    node = VLABridgeNode()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
