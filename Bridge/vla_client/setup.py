@@ -6,7 +6,8 @@ package_name = 'vla_client'
 setup(
     name=package_name,
     version='0.0.1',
-    packages=find_packages(where='.', include=[package_name, f'{package_name}.*']),
+    packages=find_packages(where='.', include=['vla_client', 'vla_client.*']),
+    package_dir={'': '.'},
     data_files=[
         ('share/ament_index/resource_index/packages', [f'resource/{package_name}']),
         (f'share/{package_name}', ['package.xml']),
