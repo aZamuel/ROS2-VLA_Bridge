@@ -320,4 +320,4 @@ RUN DEBIAN_FRONTEND=noninteractive \
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rosdep install --from-paths src --ignore-src -r -y --rosdistro $ROS_DISTRO && \
     apt-get install -y ros-$ROS_DISTRO-cv-bridge && \
-    colcon build --packages-select vla_client
+    colcon build --packages-select vla_interfaces vla_client
