@@ -295,6 +295,7 @@ EXPOSE 8000
 
 # copy VLA Requester package into the workspace
 COPY ./Bridge/vla_client/ ./src/vla_client/
+RUN chmod +x ./src/vla_client/nodes/vla_bridge_node.py
 COPY ./Bridge/vla_interfaces/ ./src/vla_interfaces/
 
 # Install cv_bridge (ROS) and ensure OpenCV compatibility
