@@ -24,7 +24,7 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 
 * Open new terminal (Str+Alt+T)  
 
-* docker exec -it <container (Tab)> "bin/bash"
+* docker exec -it <container (Tab)> "/bin/bash"
 
 ### ... use the client node
 
