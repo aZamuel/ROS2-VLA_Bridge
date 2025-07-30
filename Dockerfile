@@ -1,15 +1,18 @@
 # ### Build with:
 # 
-#     docker build -t multipanda_ros2 docker_multipanda_ros2/
+#     docker build -t ros2-vla-bridge .
 #
 # ### Run with:
 #
-#    docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged multipanda_ros2
+#    docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged --device=/dev/bus/usb ros2_vla_bridge
 #
 # ### To test whether everything works: 
 # # Graphical pass through
 #
 #    ros2 run rviz2 rviz2
+#    ros2 run vla_client vla_bridge_node  
+#    ros2 run realsense2_camera realsense2_camera_node
+#    ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 #
 # # Mujoco
 #
@@ -18,10 +21,6 @@
 # # RT kernel and robot connection
 #
 #   ~/Libraries/libfranka/bin/communication_test 172.16.0.2
-#
-# ### Running:
-# 
-#    ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 #
 # ### Publish to the cartesian controller:
 # ros2 topic pub /panda/panda_cartesian_impedance_controller/desired_pose multi_mode_control_msgs/msg/CartesianImpedanceGoal "{
@@ -55,41 +54,14 @@
 #
 
 
-
-
-
-
-
 FROM ros:humble
 
 
-# ARG DEBIAN_FRONTEND=noninteractive
-
-# ARG USER_UID=1001
-# ARG USER_GID=1001
-# ARG USERNAME=user
-
-# WORKDIR /tmp
-
-# RUN groupadd --gid $USER_GID $USERNAME \
-#     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-#     #
-#     # [Optional] Add sudo support. Omit if you don't need to install software after connecting.
-#     && apt-get update \
-#     && apt-get install -y sudo \
-#     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-#     && chmod 0440 /etc/sudoers.d/$USERNAME
-
-# ARG HOMEDIR=/home/user
 ENV HOMEDIR=/root
 ENV COLCON_WS=/root/humble_ws/
 
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install curl -y
-
-# Install Eigen 3.3.9
-# RUN apt-get update -y && apt-get install -y --allow-unauthenticated \
-    # curl
 
 RUN mkdir ${HOMEDIR}/Libraries
 RUN mkdir ${HOMEDIR}/source_code 
@@ -195,10 +167,8 @@ RUN cd ~/source_code && git clone https://github.com/google-deepmind/mujoco.git 
 
 
 # Now copy the contents of the repository into a new workspace
-# RUN mkdir -p ~/humble_ws/src/bimanual_architecture && cd ~/humble_ws
 RUN mkdir -p ${HOMEDIR}/humble_ws/src && cd ${HOMEDIR}/humble_ws/src \
     && git clone https://github.com/tenfoldpaper/multipanda_ros2
-# COPY . ${HOMEDIR}/humble_ws/src/bimanual_architecture/
 
 
 # Set up the environment variables
@@ -221,10 +191,6 @@ RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ${HOMEDIR}/
 RUN cd ${HOMEDIR}/humble_ws/src \
     && git clone https://github.com/tenfoldpaper/mujoco_ros_pkgs
 
-# RUN chown -R user:user /home/user/
-# Do rosdep install and then build the packages
-# USER user
-# WORKDIR ~/
 WORKDIR /root
 
 SHELL ["/bin/bash", "-c"]
@@ -234,44 +200,40 @@ RUN source ~/.bashrc \
     && cd ~/humble_ws && rosdep update \
     && cd ~/humble_ws && rosdep install -i --from-path src --rosdistro humble -y
 # Suppresss the XDG errors when running GUI apps like RVIZ
-# RUN mkdir /tmp/${UID}
-# RUN chown -R user:user /tmp/${UID}
-
 
 # Installing dependencies for space mouse
-RUN sudo apt-get update
-RUN sudo apt-get install libbluetooth-dev libcwiid-dev -y 
-RUN sudo apt install libx11-dev libxi-dev libxtst-dev libgl1-mesa-dev -y 
-RUN sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater -y
+# RUN sudo apt-get update
+# RUN sudo apt-get install libbluetooth-dev libcwiid-dev -y 
+# RUN sudo apt install libx11-dev libxi-dev libxtst-dev libgl1-mesa-dev -y 
+# RUN sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater -y
 
 RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
 
-RUN cd ~/source_code  \
-    && git clone https://github.com/FreeSpacenav/spacenavd \
-    && cd spacenavd \
-    && git checkout tags/v1.3.1 \
-    && ./configure \
-    && make \
-    && sudo make install \
-    && sudo ./setup_init \
-    && cd .. \
-    && git clone https://github.com/FreeSpacenav/libspnav \
-    && cd libspnav \
-    && git checkout tags/v1.2 \
-    && ./configure \
-    && make \
-    && sudo make install
+# --- Spacemouse driver & libspnav (disabled) ---
+# RUN cd ~/source_code  \
+#     && git clone https://github.com/FreeSpacenav/spacenavd \
+#     && cd spacenavd \
+#     && git checkout tags/v1.3.1 \
+#     && ./configure \
+#     && make \
+#     && sudo make install \
+#     && sudo ./setup_init \
+#     && cd .. \
+#     && git clone https://github.com/FreeSpacenav/libspnav \
+#     && cd libspnav \
+#     && git checkout tags/v1.2 \
+#     && ./configure \
+#     && make \
+#     && sudo make install
 
-RUN cd ~/humble_ws/src/ && \
-    git clone https://github.com/ros-drivers/joystick_drivers
-
-
+# --- ROS joystick_drivers (disabled) ---
+# RUN cd ~/humble_ws/src/ && \
+#     git clone https://github.com/ros-drivers/joystick_drivers
 
 # TODO copy small changes that are required to launch
 COPY Bridge/vla_client/config/single_multimode.yaml /root/humble_ws/src/multipanda_ros2/franka_bringup/config/real/single_multimode.yaml
 COPY Bridge/vla_client/launch/franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/franka.launch.py
 COPY Bridge/vla_client/launch/multimode_franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/multimode_franka.launch.py
-
 
 # ENV XDG_RUNTIME_DIR=/tmp/${UID}
 ENV CMAKE_PREFIX_PATH=~/Libraries/libfranka/lib/cmake:~/Libraries/mujoco/lib/cmake
@@ -281,8 +243,10 @@ RUN cd ~/humble_ws \
     && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 RUN echo 'source ${HOMEDIR}/humble_ws/install/setup.bash' >> ${HOMEDIR}/.bashrc
-RUN echo 'spacenavd' >> ${HOMEDIR}/.bashrc
-# Autostart spacenavd
+# RUN echo 'spacenavd' >> ${HOMEDIR}/.bashrc
+# Autostart spacenavd (disabled)
+
+# --- ROS2-VLA_Bridge specific ---
 
 WORKDIR /root/humble_ws
 
@@ -312,10 +276,10 @@ RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
 
 RUN pip install scipy
 
-#spacenavd faxen
-RUN DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-    spacenavd libspnav-dev libsdl2-dev
+# --- Spacemouse fallback install (disabled) ---
+# RUN DEBIAN_FRONTEND=noninteractive \
+#     apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+#     spacenavd libspnav-dev libsdl2-dev
 
 # install package dependencies and build
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
