@@ -294,8 +294,9 @@ EXPOSE 8000
 #CMD ["ros2", "run", "vla_client", "vla_bridge_node"]
 
 # copy VLA Requester package into the workspace
-COPY ./Bridge/vla_client ./src/vla_client
-COPY ./Bridge/vla_interfaces ./src/vla_interfaces
+COPY ./Bridge/vla_client/ ./src/vla_client/
+RUN chmod +x ./src/vla_client/nodes/vla_bridge_node.py
+COPY ./Bridge/vla_interfaces/ ./src/vla_interfaces/
 
 # Install cv_bridge (ROS) and ensure OpenCV compatibility
 RUN apt-get update && apt-get install -y \
@@ -320,4 +321,4 @@ RUN DEBIAN_FRONTEND=noninteractive \
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
     rosdep install --from-paths src --ignore-src -r -y --rosdistro $ROS_DISTRO && \
     apt-get install -y ros-$ROS_DISTRO-cv-bridge && \
-    colcon build --packages-select vla_client
+    colcon build --packages-up-to vla_client

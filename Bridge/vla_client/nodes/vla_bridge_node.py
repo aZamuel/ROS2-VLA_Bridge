@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import rclpy
 import requests
 import base64
@@ -12,13 +13,16 @@ from multi_mode_control_msgs.msg import CartesianImpedanceGoal
 from scipy.spatial.transform import Rotation as R
 from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
+from vla_interfaces.srv import SetPrompt
 
 
 class VLABridgeNode(Node):
     def __init__(self):
-        super().__init__('vla_requester')
-        self.get_logger().info('VLA Requester node has been started.')
-        self.create_service(SetBool, 'vla_requester/toggle', self.handle_toggle)
+        super().__init__('vla_bridge_node')
+        self.get_logger().info('vla_bridge_node has been started.')
+
+        self.create_service(SetBool, '/toggle_active', self.handle_toggle)
+        self.create_service(SetPrompt, '/set_prompt', self.set_prompt_callback)
 
         # Configuration
         self.prompt = "Default prompt"
@@ -64,6 +68,13 @@ class VLABridgeNode(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")
 
+    def set_prompt_callback(self, request, response):
+        self.prompt = request.prompt
+        response.success = True
+        response.message = f"Prompt updated to: {self.prompt}"
+        self.get_logger().info(response.message)
+        return response
+    
     def joint_state_callback(self, msg):
         self.latest_joint_angles = list(msg.position)
 
