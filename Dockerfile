@@ -63,6 +63,7 @@ ENV COLCON_WS=/root/humble_ws/
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install curl -y
 
+RUN mkdir -p ${COLCON_WS}/src
 RUN mkdir ${HOMEDIR}/Libraries
 RUN mkdir ${HOMEDIR}/source_code 
 RUN cd ${HOMEDIR}/source_code \
@@ -137,59 +138,58 @@ RUN cd ${HOMEDIR}/source_code && git clone https://github.com/frankaemika/libfra
     && cmake --build . \
     && cmake --install .
 
-# Install MuJoCo dependencies first
-RUN apt-get update -y && apt-get install -y \
-    libglfw3 \
-    libglfw3-dev \
-    libgl1-mesa-dev \
-    libxinerama-dev \
-    libxcursor-dev \
-    libxrandr-dev \
-    libxi-dev \
-    ninja-build \
-    zlib1g-dev \
-    clang-12
+# # --- MuJoCo GUI & build deps (disabled) ---
+# RUN apt-get update -y && apt-get install -y \
+#     libglfw3 \
+#     libglfw3-dev \
+#     libgl1-mesa-dev \
+#     libxinerama-dev \
+#     libxcursor-dev \
+#     libxrandr-dev \
+#     libxi-dev \
+#     ninja-build \
+#     zlib1g-dev \
+#     clang-12
+#
+# # Install dqrobotics
+# RUN add-apt-repository ppa:dqrobotics-dev/release && apt-get update && apt-get install libdqrobotics
+#
+# # Install MuJoCo from scratch
+# # --- MuJoCo source build (disabled) ---
+# RUN cd ~/source_code && git clone https://github.com/google-deepmind/mujoco.git \
+#     && cd mujoco \
+#     && git checkout 3.2.0 \
+#     && mkdir ~/source_code/mujoco/build \
+#     && mkdir ${HOMEDIR}/Libraries/mujoco \
+#     && cd ~/source_code/mujoco/build \
+#     && cmake .. -DCMAKE_INSTALL_PREFIX=${HOMEDIR}/Libraries/mujoco \
+#     && cmake --build . \
+#     && cmake --install .
+#
+# # --- mujoco_ros_pkgs clone (disabled) ---
+# RUN cd ${HOMEDIR}/humble_ws/src \
+#     && git clone https://github.com/tenfoldpaper/mujoco_ros_pkgs
+#
+# # --- MuJoCo environment (disabled) ---
+# RUN echo 'export MUJOCO_DIR=${HOMEDIR}/Libraries/mujoco' >> ${HOMEDIR}/.bashrc
+# RUN echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
+# RUN echo 'export LIBRARY_PATH=$LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
+#
+# # TODO for some reason these are not entirely correct, fix this!
+# # MuJoCo environment (disabled – not in use)
+# RUN echo 'export MUJOCO_DIR=${HOMEDIR}/Libraries/mujoco' >> ${HOMEDIR}/.bashrc
+# RUN echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
+# RUN echo 'export LIBRARY_PATH=$LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
 
-# Install dqrobotics
-RUN add-apt-repository ppa:dqrobotics-dev/release && apt-get update && apt-get install libdqrobotics
-
-# Install MuJoCo from scratch
-RUN cd ~/source_code && git clone https://github.com/google-deepmind/mujoco.git \
-    && cd mujoco \
-    # Checkout the required version 3.2.0 of mujoco
-    && git checkout 3.2.0 \
-    && mkdir ~/source_code/mujoco/build \
-    && mkdir ${HOMEDIR}/Libraries/mujoco \
-    && cd ~/source_code/mujoco/build \
-    && cmake .. -DCMAKE_INSTALL_PREFIX=${HOMEDIR}/Libraries/mujoco \
-    && cmake --build . \
-    && cmake --install .
-
-
-# Now copy the contents of the repository into a new workspace
-RUN mkdir -p ${HOMEDIR}/humble_ws/src && cd ${HOMEDIR}/humble_ws/src \
-    && git clone https://github.com/tenfoldpaper/multipanda_ros2
-
-
-# Set up the environment variables
-RUN echo 'source /opt/ros/humble/setup.bash' >> ${HOMEDIR}/.bashrc
-RUN echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOMEDIR}/Libraries/libfranka/lib:${HOMEDIR}/Libraries/mujoco/lib' >> ${HOMEDIR}/.bashrc 
-RUN echo 'export CMAKE_PREFIX_PATH=~/Libraries/libfranka/lib/cmake:~/Libraries/mujoco/lib/cmake' >> ${HOMEDIR}/.bashrc
-
-
-# TODO for some reason these are not entirely correct, fix this!
-# Additional Environment Variables for mujoco_ros_pkgs
-RUN echo 'export MUJOCO_DIR=${HOMEDIR}/Libraries/mujoco' >> ${HOMEDIR}/.bashrc
-# ENV MUJOCO_DIR=${HOMEDIR}/Libraries/mujoco
-RUN echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
-RUN echo 'export LIBRARY_PATH=$LIBRARY_PATH:$MUJOCO_DIR/lib' >> ${HOMEDIR}/.bashrc
+# # libfranka cmake export path (still needed if using libfranka directly)
 RUN echo 'export Franka_DIR=${HOMEDIR}/Libraries/libfranka' >> ${HOMEDIR}/.bashrc
-RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ${HOMEDIR}/.bashrc
-# To make libspacemouse available
 
-# Install mujoco_ros_pkgs
-RUN cd ${HOMEDIR}/humble_ws/src \
-    && git clone https://github.com/tenfoldpaper/mujoco_ros_pkgs
+# # Restore system lib path first (still useful for general builds)
+RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ${HOMEDIR}/.bashrc
+
+# # mujoco_ros_pkgs clone (disabled – not using MuJoCo)
+# RUN cd ${HOMEDIR}/humble_ws/src \
+#     && git clone https://github.com/tenfoldpaper/mujoco_ros_pkgs
 
 WORKDIR /root
 
