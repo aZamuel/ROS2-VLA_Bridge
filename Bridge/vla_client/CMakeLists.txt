@@ -7,6 +7,7 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(vla_interfaces REQUIRED)
+find_package(multi_mode_control_msgs REQUIRED)
 
 install(
   PROGRAMS # making it executable
