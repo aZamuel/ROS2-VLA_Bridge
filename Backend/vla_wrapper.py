@@ -3,6 +3,8 @@ from typing import Any, Dict
 import base64
 import cv2
 import numpy as np
+import torch
+from transformers import AutoModelForVision2Seq, AutoProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
@@ -10,16 +12,22 @@ logger = logging.getLogger("VLAWrapper")
 class VLAWrapper:
     def __init__(self, model_name: str = "openvla"):
         self.model_name = model_name
-        logger.info(f"Initializing VLAWrapper for model: {self.model_name}")
-        self.model = self._load_model()
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model, self.processor = self._load_model()
 
-    def _load_model(self) -> Any:
-        """
-        Placeholder for model loading logic.
-        Replace this with actual model initialization.
-        """
-        logger.info("Loading model (placeholder)...")
-        return None  # Replace with actual model
+    def _load_model(self):
+        """Load OpenVLA weights and processor (no inference yet)."""
+        dtype = torch.bfloat16 if self.device.startswith("cuda") else torch.float32
+        processor = AutoProcessor.from_pretrained("openvla/openvla-7b", trust_remote_code=True)
+        model = AutoModelForVision2Seq.from_pretrained(
+            "openvla/openvla-7b",
+            # attn_implementation="flash_attention_2",  # remove if flash-attn not installed
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        ).to(self.device)
+        logger.info("OpenVLA model loaded successfully!")
+        return model, processor
 
     def predict(self, image: Any, instruction: str) -> Dict[str, float]:
         # Decode Base64 image
@@ -64,10 +72,7 @@ class VLAWrapper:
         logger.info(f"Returning dummy control output: {control_output}")
         return control_output
 
-# Example usage
+# __main__ (tiny smoke test)
 if __name__ == "__main__":
-    wrapper = VLAWrapper(model_name="pi0")
-    dummy_image = None  # Replace with actual image data
-    dummy_instruction = "Pick up the red cube"
-    result = wrapper.predict(dummy_image, dummy_instruction)
-    print("Control Output:", result)
+    VLAWrapper(model_name="openvla")
+    print("Loaded OpenVLA successfully.")

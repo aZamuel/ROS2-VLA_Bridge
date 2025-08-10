@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from vla_wrapper import VLAWrapper
 
 app = Flask(__name__)
-vla = VLAWrapper(model_name="pi0")
+vla = VLAWrapper(model_name="openvla")
 
 @app.route("/predict", methods=["POST"])
 def predict():
