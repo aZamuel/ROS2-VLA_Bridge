@@ -72,7 +72,18 @@ class VLAWrapper:
             "delta_gripper": float(grip),
         }
 
-# __main__ (tiny smoke test)
 if __name__ == "__main__":
-    VLAWrapper(model_name="openvla")
-    print("Loaded OpenVLA successfully.")
+    wrapper = VLAWrapper(model_name="openvla/openvla-7b")
+
+    # Load a small local test image
+    from PIL import Image
+    import base64, cv2, numpy as np
+
+    img = cv2.imread("test.jpg")  # replace with path to any RGB photo
+    _, buf = cv2.imencode(".jpg", img)
+    img_b64 = base64.b64encode(buf).decode("utf-8")
+
+    prompt = "Pick up the red cube"
+
+    result = wrapper.predict(img_b64, prompt)
+    print("Control Output:", result)
