@@ -30,47 +30,47 @@ class VLAWrapper:
         return model, processor
 
     def predict(self, image: Any, instruction: str) -> Dict[str, float]:
-        # Decode Base64 image
+        # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
-            image_data = base64.b64decode(image)
-            np_arr = np.frombuffer(image_data, np.uint8)
-            decoded_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            logger.info("Image decoded successfully.")
+            image_bytes = base64.b64decode(image)
+            np_arr = np.frombuffer(image_bytes, np.uint8)
+            bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            if bgr is None:
+                raise ValueError("cv2.imdecode returned None")
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb)
         except Exception as e:
-            logger.error(f"Failed to decode image: {e}")
-            decoded_image = None
+            logger.exception(f"Failed to decode image: {e}")
+            # Conservative no-op deltas if vision fails
+            return {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0,
+                    "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0,
+                    "delta_gripper": 0.0}
 
-        # Show image for testing
-        #if decoded_image is not None:
-        #    cv2.imshow("Decoded Image", decoded_image)
-        #    cv2.waitKey(10)
-        
-        """
-        Perform inference using the VLA model.
+        # 2) Prompt (per OpenVLA README format)
+        prompt = f"In: What action should the robot take to {instruction}?\nOut:"  # 
 
-        Args:
-            image: A visual input (e.g., numpy array, PIL image, etc.)
-            instruction: A natural language instruction.
+        # 3) Tokenize & infer
+        with torch.no_grad():
+            inputs = self.processor(prompt, pil_img).to(self.device)
+            # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
+            action = self.model.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
 
-        Returns:
-            A dictionary with pose deltas or joint commands.
-        """
-        logger.info(f"Received instruction: {instruction}")
-        logger.info(f"Received image of type: {type(image)}")
+        # 4) Map action → deltas (ASSUMPTION)
+        # Assumed order: [dx, dy, dz, droll, dpitch, dyaw, grip]
+        # If your checkpoint uses a different schema, we’ll swap indices here.
+        action = action.detach().float().cpu().numpy().ravel().tolist()
+        pad = action + [0.0] * max(0, 7 - len(action))
+        dx, dy, dz, droll, dpitch, dyaw, grip = pad[:7]
 
-        # Placeholder output
-        control_output = {
-            "delta_x": 0.0,
-            "delta_y": 0.0,
-            "delta_z": 0.05,
-            "delta_roll": 0.0,
-            "delta_pitch": 0.0,
-            "delta_yaw": 0.0,
-            "delta_gripper": 0.5
+        return {
+            "delta_x": float(dx),
+            "delta_y": float(dy),
+            "delta_z": float(dz),
+            "delta_roll": float(droll),
+            "delta_pitch": float(dpitch),
+            "delta_yaw": float(dyaw),
+            "delta_gripper": float(grip),
         }
-
-        logger.info(f"Returning dummy control output: {control_output}")
-        return control_output
 
 # __main__ (tiny smoke test)
 if __name__ == "__main__":
