@@ -3,6 +3,7 @@ from typing import Any, Dict
 import base64
 import cv2
 import numpy as np
+from PIL import Image
 import torch
 from transformers import AutoModelForVision2Seq, AutoProcessor
 
@@ -55,22 +56,20 @@ class VLAWrapper:
             # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
             action = self.model.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
 
-        # 4) Map action → deltas (ASSUMPTION)
-        # Assumed order: [dx, dy, dz, droll, dpitch, dyaw, grip]
-        # If your checkpoint uses a different schema, we’ll swap indices here.
-        action = action.detach().float().cpu().numpy().ravel().tolist()
-        pad = action + [0.0] * max(0, 7 - len(action))
-        dx, dy, dz, droll, dpitch, dyaw, grip = pad[:7]
-
-        return {
-            "delta_x": float(dx),
-            "delta_y": float(dy),
-            "delta_z": float(dz),
-            "delta_roll": float(droll),
-            "delta_pitch": float(dpitch),
-            "delta_yaw": float(dyaw),
-            "delta_gripper": float(grip),
-        }
+        # Robust type normalize
+        if isinstance(action, torch.Tensor):
+            action = action.detach().float().cpu().numpy()
+        else:
+            action = np.asarray(action)
+        vals = (action.ravel().tolist() + [0.0]*7)[:7]
+        dx, dy, dz, droll, dpitch, dyaw, grip = vals
+        return {"delta_x":float(dx),
+                "delta_y":float(dy),
+                "delta_z":float(dz),
+                "delta_roll":float(droll),
+                "delta_pitch":float(dpitch),
+                "delta_yaw":float(dyaw),
+                "delta_gripper":float(grip)}
 
 if __name__ == "__main__":
     wrapper = VLAWrapper(model_name="openvla/openvla-7b")
