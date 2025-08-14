@@ -3,6 +3,9 @@ from typing import Any, Dict
 import base64
 import cv2
 import numpy as np
+from PIL import Image
+import torch
+from transformers import AutoModelForVision2Seq, AutoProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
@@ -10,64 +13,76 @@ logger = logging.getLogger("VLAWrapper")
 class VLAWrapper:
     def __init__(self, model_name: str = "openvla"):
         self.model_name = model_name
-        logger.info(f"Initializing VLAWrapper for model: {self.model_name}")
-        self.model = self._load_model()
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model, self.processor = self._load_model()
 
-    def _load_model(self) -> Any:
-        """
-        Placeholder for model loading logic.
-        Replace this with actual model initialization.
-        """
-        logger.info("Loading model (placeholder)...")
-        return None  # Replace with actual model
+    def _load_model(self):
+        """Load OpenVLA weights and processor (no inference yet)."""
+        dtype = torch.bfloat16 if self.device.startswith("cuda") else torch.float32
+        processor = AutoProcessor.from_pretrained("openvla/openvla-7b", trust_remote_code=True)
+        model = AutoModelForVision2Seq.from_pretrained(
+            "openvla/openvla-7b",
+            # attn_implementation="flash_attention_2",  # remove if flash-attn not installed
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        ).to(self.device)
+        logger.info("OpenVLA model loaded successfully!")
+        return model, processor
 
     def predict(self, image: Any, instruction: str) -> Dict[str, float]:
-        # Decode Base64 image
+        # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
-            image_data = base64.b64decode(image)
-            np_arr = np.frombuffer(image_data, np.uint8)
-            decoded_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            logger.info("Image decoded successfully.")
+            image_bytes = base64.b64decode(image)
+            np_arr = np.frombuffer(image_bytes, np.uint8)
+            bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            if bgr is None:
+                raise ValueError("cv2.imdecode returned None")
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb)
         except Exception as e:
-            logger.error(f"Failed to decode image: {e}")
-            decoded_image = None
+            logger.exception(f"Failed to decode image: {e}")
+            # Conservative no-op deltas if vision fails
+            return {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0,
+                    "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0,
+                    "delta_gripper": 0.0}
 
-        # Show image for testing
-        #if decoded_image is not None:
-        #    cv2.imshow("Decoded Image", decoded_image)
-        #    cv2.waitKey(10)
-        
-        """
-        Perform inference using the VLA model.
+        # 2) Prompt (per OpenVLA README format)
+        prompt = f"In: What action should the robot take to {instruction}?\nOut:"  # 
 
-        Args:
-            image: A visual input (e.g., numpy array, PIL image, etc.)
-            instruction: A natural language instruction.
+        # 3) Tokenize & infer
+        with torch.no_grad():
+            inputs = self.processor(prompt, pil_img).to(self.device)
+            # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
+            action = self.model.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
 
-        Returns:
-            A dictionary with pose deltas or joint commands.
-        """
-        logger.info(f"Received instruction: {instruction}")
-        logger.info(f"Received image of type: {type(image)}")
+        # Robust type normalize
+        if isinstance(action, torch.Tensor):
+            action = action.detach().float().cpu().numpy()
+        else:
+            action = np.asarray(action)
+        vals = (action.ravel().tolist() + [0.0]*7)[:7]
+        dx, dy, dz, droll, dpitch, dyaw, grip = vals
+        return {"delta_x":float(dx),
+                "delta_y":float(dy),
+                "delta_z":float(dz),
+                "delta_roll":float(droll),
+                "delta_pitch":float(dpitch),
+                "delta_yaw":float(dyaw),
+                "delta_gripper":float(grip)}
 
-        # Placeholder output
-        control_output = {
-            "delta_x": 0.0,
-            "delta_y": 0.0,
-            "delta_z": 0.05,
-            "delta_roll": 0.0,
-            "delta_pitch": 0.0,
-            "delta_yaw": 0.0,
-            "delta_gripper": 0.5
-        }
-
-        logger.info(f"Returning dummy control output: {control_output}")
-        return control_output
-
-# Example usage
 if __name__ == "__main__":
-    wrapper = VLAWrapper(model_name="pi0")
-    dummy_image = None  # Replace with actual image data
-    dummy_instruction = "Pick up the red cube"
-    result = wrapper.predict(dummy_image, dummy_instruction)
+    wrapper = VLAWrapper(model_name="openvla/openvla-7b")
+
+    # Load a small local test image
+    from PIL import Image
+    import base64, cv2, numpy as np
+
+    img = cv2.imread("test.jpg")  # replace with path to any RGB photo
+    _, buf = cv2.imencode(".jpg", img)
+    img_b64 = base64.b64encode(buf).decode("utf-8")
+
+    prompt = "Pick up the red cube"
+
+    result = wrapper.predict(img_b64, prompt)
     print("Control Output:", result)
