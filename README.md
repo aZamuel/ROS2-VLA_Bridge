@@ -7,7 +7,7 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 
 ### ... start the client node
 
-* As a starting point I used the ros2_multipanda Dockerfile from the RobotReplicationFiles provided by David Ott. Using the same commands one can start the docker by running these lines in the base repository:  
+* As a starting point I used the ros2_multipanda Dockerfile from the RobotReplicationFiles provided by my Tutor David Ott. Using the similar commands one can start the docker by running these lines in the base repository:  
 docker build -t ros2_vla_bridge .  
 docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged --device=/dev/bus/usb ros2_vla_bridge  
 
@@ -42,12 +42,16 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 
 ### ... start the Backend
 
-* For now the Flask app can be started in the container or an the host system.  
+* For now the Flask server and VLA wrapper app should be started on the host system for now. Run the following on a Terminal in the base of the Repo.  
 
-* In new Terminal:  
-On Container ~/humble_ws:  
-python3 VLA_Wrapper/vla_server.py  
-Or in the Repo:  
+* To create the conda environment for the Backend. (ones on a new system):  
+conda env create -f environment.yml (ones on a new system)  
+
+* To activate the environment (with cpu fallback):  
+conda activate openvla  
+export CUDA_VISIBLE_DEVICES=""  
+
+* To start the Backend:
 python3 Backend/vla_server.py
 
 ---
