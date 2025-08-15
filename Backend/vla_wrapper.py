@@ -14,21 +14,33 @@ class VLAWrapper:
     def __init__(self, model_name: str = "openvla"):
         self.model_name = model_name
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model, self.processor = self._load_model()
+        self.model, self.processor, self.dtype = self._load_model()
 
     def _load_model(self):
-        """Load OpenVLA weights and processor (no inference yet)."""
-        dtype = torch.bfloat16 if self.device.startswith("cuda") else torch.float32
-        processor = AutoProcessor.from_pretrained("openvla/openvla-7b", trust_remote_code=True)
+        use_cuda = torch.cuda.is_available()
+        dtype = torch.bfloat16 if use_cuda else torch.float32
+
+        # Try enabling FlashAttention if available and compatible
+        attn_impl = None
+        if use_cuda:
+            try:
+                import flash_attn  # noqa: F401
+                attn_impl = "flash_attention_2"
+                logger.info("FlashAttention detected, will use flash_attention_2")
+            except Exception as e:
+                logger.info(f"FlashAttention not available: {e}")
+
+        processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
         model = AutoModelForVision2Seq.from_pretrained(
-            "openvla/openvla-7b",
-            # attn_implementation="flash_attention_2",  # remove if flash-attn not installed
+            self.model_name,
+            attn_implementation=attn_impl,
             torch_dtype=dtype,
             low_cpu_mem_usage=True,
             trust_remote_code=True,
-        ).to(self.device)
-        logger.info("OpenVLA model loaded successfully!")
-        return model, processor
+        ).to(self.device).eval()
+
+        logger.info(f"OpenVLA loaded on {self.device} (dtype={dtype}, flash_attn={attn_impl is not None})")
+        return model, processor, dtype
 
     def predict(self, image: Any, instruction: str) -> Dict[str, float]:
         # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
@@ -53,6 +65,16 @@ class VLAWrapper:
         # 3) Tokenize & infer
         with torch.no_grad():
             inputs = self.processor(prompt, pil_img).to(self.device)
+
+            use_cuda = torch.cuda.is_available()
+            if use_cuda:
+                # move everything to GPU WITHOUT changing dtype
+                inputs = {k: (v.to("cuda:0") if hasattr(v, "to") else v) for k, v in inputs.items()}
+                # cast ONLY image-like tensors to bf16
+                for k in ("pixel_values", "pixel_values_fused", "vision_pixels", "image"):
+                    if k in inputs and hasattr(inputs[k], "to"):
+                        inputs[k] = inputs[k].to("cuda:0", dtype=torch.bfloat16)
+            
             # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
             action = self.model.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
 
