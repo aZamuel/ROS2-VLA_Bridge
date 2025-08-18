@@ -107,4 +107,4 @@ if __name__ == "__main__":
     prompt = "Pick up the red cube"
 
     result = wrapper.predict(img_b64, prompt)
-    print("Control Output:", result)
+    print("Output:", result)
