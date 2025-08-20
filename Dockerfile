@@ -271,6 +271,12 @@ COPY Bridge/vla_client/launch/franka.launch.py /root/humble_ws/src/multipanda_ro
 COPY Bridge/vla_client/launch/multimode_franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/multimode_franka.launch.py
 
 
+# TODO dirty fix to always always use libfranka while ignoring realtime capabilities on the system 
+# (should already be done automatically through the check in the line following this one, but there !franka::hasRealtimeKernel() for some reason
+# returns true when it should not)
+RUN sed -i 's/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kEnforce;/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kIgnore;/' ~/humble_ws/src/multipanda_ros2/franka_hardware/src/real/robot.cpp
+
+
 # ENV XDG_RUNTIME_DIR=/tmp/${UID}
 ENV CMAKE_PREFIX_PATH=~/Libraries/libfranka/lib/cmake:~/Libraries/mujoco/lib/cmake
 RUN cd ~/humble_ws \
