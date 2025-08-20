@@ -38,7 +38,7 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
     self.bridge = CvBridge()  
 
 * To start the request loop:  
-    ros2 service call /vla_client/toggle std_srvs/srv/SetBool "{data: true}"  
+    ros2 service call /toggle_active std_srvs/srv/SetBool "{data: true}"  
 
 ### ... start the Backend
 

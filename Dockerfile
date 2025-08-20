@@ -244,8 +244,6 @@ RUN sudo apt-get install libbluetooth-dev libcwiid-dev -y
 RUN sudo apt install libx11-dev libxi-dev libxtst-dev libgl1-mesa-dev -y 
 RUN sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater -y
 
-RUN apt-get update && apt-get install -y ros-humble-realsense2-camera
-
 RUN cd ~/source_code  \
     && git clone https://github.com/FreeSpacenav/spacenavd \
     && cd spacenavd \
@@ -271,6 +269,12 @@ RUN cd ~/humble_ws/src/ && \
 COPY Bridge/vla_client/config/single_multimode.yaml /root/humble_ws/src/multipanda_ros2/franka_bringup/config/real/single_multimode.yaml
 COPY Bridge/vla_client/launch/franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/franka.launch.py
 COPY Bridge/vla_client/launch/multimode_franka.launch.py /root/humble_ws/src/multipanda_ros2/franka_bringup/launch/real/multimode_franka.launch.py
+
+
+# TODO dirty fix to always always use libfranka while ignoring realtime capabilities on the system 
+# (should already be done automatically through the check in the line following this one, but there !franka::hasRealtimeKernel() for some reason
+# returns true when it should not)
+RUN sed -i 's/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kEnforce;/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kIgnore;/' ~/humble_ws/src/multipanda_ros2/franka_hardware/src/real/robot.cpp
 
 
 # ENV XDG_RUNTIME_DIR=/tmp/${UID}
