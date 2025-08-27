@@ -15,4 +15,8 @@ install(
   RENAME vla_bridge_node
 )
 
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
 ament_package()
