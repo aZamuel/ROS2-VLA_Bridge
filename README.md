@@ -13,12 +13,15 @@ docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=h
 
 * To pass on any display correctly one should also run  
 xhost +local:docker  
-on the host system.  
+on the host system.
 
-* Now you can start nodes (each In a new Terminal):  
+* Now you can start all nodes (when robot is available!):  
+ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 autostart:=true  
+
+* Manually start nodes with (each In a new Terminal):  
 ros2 run vla_client vla_bridge_node  
-ros2 run realsense2_camera realsense2_camera_node
-ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
+ros2 run realsense2_camera realsense2_camera_node  
+ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2  
 
 ### ... open new Terminal in docker
 
@@ -37,8 +40,9 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
     self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]  
     self.bridge = CvBridge()  
 
-* To start the request loop:  
-    ros2 service call /toggle_active std_srvs/srv/SetBool "{data: true}"  
+* To call upon the services manually:  
+ros2 service call /toggle_active std_srvs/srv/SetBool "{data: true}"
+ros2 service call /set_prompt vla_interfaces/srv/SetPrompt "{prompt: 'Pick up the red cube'}"  
 
 ### ... start the Backend
 
@@ -49,7 +53,6 @@ conda env create -f environment.yml (ones on a new system)
 
 * To activate the environment (with cpu fallback):  
 conda activate openvla  
-export CUDA_VISIBLE_DEVICES=""  
 
 * To start the Backend:
 python3 Backend/vla_server.py
