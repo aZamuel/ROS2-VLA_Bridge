@@ -28,6 +28,8 @@ class VLABridgeNode(Node):
         self.prompt = "go up"
         self.backend_url = "http://localhost:8000/predict"
         self.request_interval = 1.0  # seconds
+        self.image_width = 224
+        self.image_height = 224
         self.active = False  # Initially stopped
 
         # Internal state
@@ -54,17 +56,30 @@ class VLABridgeNode(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
     def generate_dummy_image(self):
-        # Create a dummy black image using OpenCV
+        # Create black dummy image and encode
         import numpy as np
-        dummy_image = np.zeros((480, 640, 3), dtype=np.uint8)
-        _, buffer = cv2.imencode('.jpg', dummy_image)
-        return base64.b64encode(buffer).decode('utf-8')
+        dummy_image = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
+        return self.encode_and_resize(dummy_image)
+    
+    def encode_and_resize(self, img_bgr):
+        # BGR to RGB, resize, JPEG to base64
+        try:
+            rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            resized = cv2.resize(rgb, (self.image_width, self.image_height), interpolation=cv2.INTER_AREA)
+            ok, buffer = cv2.imencode('.jpg', resized)
+            if not ok:
+                raise RuntimeError("cv2.imencode failed")
+            return base64.b64encode(buffer).decode('utf-8')
+        except Exception as e:
+            self.get_logger().error(f"Preprocess/encode failed: {e}")
+            return None
 
     def image_callback(self, msg):
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            _, buffer = cv2.imencode('.jpg', cv_image)
-            self.latest_image = base64.b64encode(buffer).decode('utf-8')
+            cv_image_bgr = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.latest_image = self.encode_and_resize(cv_image_bgr)
+            if self.latest_image is None:
+                self.get_logger().warn("Latest image not set due to encode failure.")
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")
 
