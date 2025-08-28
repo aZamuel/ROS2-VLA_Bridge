@@ -54,7 +54,12 @@ conda env create -f environment.yml (ones on a new system)
 * To activate the environment (with cpu fallback):  
 conda activate openvla  
 
-* To start the Backend:
-python3 Backend/vla_server.py
+* To start the Backend:  
+python3 Backend/vla_server.py  
+
+
+* To get backend debugging image:  
+curl -s http://localhost:8000/debug/last_image.jpg -o last.jpg  
+and open in browser: http://localhost:8000/debug/view  
 
 ---

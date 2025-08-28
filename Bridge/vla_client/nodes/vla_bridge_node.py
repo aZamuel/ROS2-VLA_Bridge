@@ -38,7 +38,7 @@ class VLABridgeNode(Node):
         self.bridge = CvBridge()
 
         # Subscribers
-        self.create_subscription(Image, '/camera/camera/color/image_raw', self.image_callback, 10)
+        self.create_subscription(Image, '/camera/realsense2_camera/color/image_raw', self.image_callback, 10)
         self.create_subscription(JointState, '/joint_states', self.joint_state_callback, 10)
 
         # Publishers
