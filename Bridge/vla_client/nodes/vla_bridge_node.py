@@ -25,9 +25,9 @@ class VLABridgeNode(Node):
         self.create_service(SetPrompt, '/set_prompt', self.set_prompt_callback)
 
         # Configuration
-        self.prompt = "go up"
+        self.prompt = "gripp the yellow Lego"
         self.backend_url = "http://localhost:8000/predict"
-        self.request_interval = 1.0  # seconds
+        self.request_interval = 0.2  # seconds
         self.active = False  # Initially stopped
 
         # Internal state
