@@ -14,6 +14,7 @@ from scipy.spatial.transform import Rotation as R
 from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 from vla_interfaces.srv import SetPrompt
+from vla_interfaces.srv import SetRequest
 
 
 class VLABridgeNode(Node):
@@ -23,11 +24,13 @@ class VLABridgeNode(Node):
 
         self.create_service(SetBool, '/toggle_active', self.handle_toggle)
         self.create_service(SetPrompt, '/set_prompt', self.set_prompt_callback)
+        self.create_service(SetRequest, '/set_request', self.set_request_callback)
 
         # Configuration
         self.prompt = "go up"
         self.backend_url = "http://localhost:8000/predict"
         self.request_interval = 1.0  # seconds
+        self.vla_model = "openvla/openvla-7b"
         self.image_width = 224
         self.image_height = 224
         self.active = False  # Initially stopped
@@ -100,6 +103,34 @@ class VLABridgeNode(Node):
         response.success = True
         response.message = f"Requester {state_str}."
         return response
+    
+    def set_request_callback(self, request, response):
+        # Update configuration fields
+        self.prompt = request.prompt
+        self.backend_url = request.backend_url
+        self.request_interval = request.request_interval
+        self.active = request.active
+        self.model = request.model
+
+        # Reset timer with new interval
+        try:
+            self.timer.cancel()
+            self.timer = self.create_timer(self.request_interval, self.send_request)
+        except Exception as e:
+            self.get_logger().error(f"Failed to reset timer: {e}")
+            response.success = False
+            response.message = f"Update failed: {e}"
+            return response
+
+        response.success = True
+        response.message = (
+            f"Updated request: model={self.model}, "
+            f"url={self.backend_url}, "
+            f"interval={self.request_interval}, "
+            f"prompt='{self.prompt}', active={self.active}"
+        )
+        self.get_logger().info(response.message)
+        return response
 
     def send_request(self):
         if not self.active:
@@ -112,7 +143,8 @@ class VLABridgeNode(Node):
         payload = {
             "prompt": self.prompt,
             "joint_angles": self.latest_joint_angles,
-            "image": self.latest_image
+            "image": self.latest_image,
+            "model": self.model
         }
 
         try:

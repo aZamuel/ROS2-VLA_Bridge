@@ -14,8 +14,11 @@ def predict():
     instruction = request.json.get("prompt")
     joint_angles = request.json.get("joint_angles")
     image_jason = request.json.get("image")
+    model = request.json.get("model")
     if not instruction:
         return jsonify({"error": "No instruction provided"}), 400
+    if (model != "openvla/openvla-7b"):
+        return jsonify({"error": "Only openvla/openvla-7b available"}), 401
     
     # decode once for debugging
     global last_image

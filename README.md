@@ -43,6 +43,7 @@ ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2
 * To call upon the services manually:  
 ros2 service call /toggle_active std_srvs/srv/SetBool "{data: true}"  
 ros2 service call /set_prompt vla_interfaces/srv/SetPrompt "{prompt: 'Pick up the red cube'}"  
+ros2 service call /set_request vla_interfaces/srv/SetRequest "{model: 'openvla/openvla-7b', backend_url: 'http://localhost:8000/predict', request_interval: 0.5, prompt: 'grab a Lego', active: true}"  
 
 ### ... start the Backend
 

@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
 
 class VLAWrapper:
-    def __init__(self, model_name: str = "openvla"):
+    def __init__(self, model_name: str = "openvla/openvla-7b"):
         self.model_name = model_name
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model, self.processor, self.dtype = self._load_model()
