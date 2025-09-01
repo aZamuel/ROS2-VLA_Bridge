@@ -3,6 +3,7 @@ import rclpy
 import requests
 import base64
 import cv2
+import numpy as np
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import JointState
@@ -15,6 +16,7 @@ from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 from vla_interfaces.srv import SetPrompt
 from vla_interfaces.srv import SetRequest
+
 
 
 class VLABridgeNode(Node):
@@ -30,7 +32,7 @@ class VLABridgeNode(Node):
         self.prompt = "go up"
         self.backend_url = "http://localhost:8000/predict"
         self.request_interval = 1.0  # seconds
-        self.vla_model = "openvla/openvla-7b"
+        self.model = "openvla/openvla-7b"
         self.image_width = 224
         self.image_height = 224
         self.active = False  # Initially stopped
@@ -152,6 +154,7 @@ class VLABridgeNode(Node):
             if response.status_code == 200:
                 result = response.json()
                 self.get_logger().info(f"Request successful: {result}")
+                result = self.saturate_delta(result, 0.1, 0.1)
 
                 current_pose = self.get_current_pose()
                 if current_pose:
@@ -183,12 +186,7 @@ class VLABridgeNode(Node):
         self.get_logger().info(f"Published desired pose: {goal}")
 
     def get_current_pose(self):
-        """
-        Fetch the current pose of panda_hand_tcp in panda_link0 frame.
-
-        Returns:
-            PoseStamped: Current pose or None if lookup fails.
-        """
+        # Fetch the current pose of panda_hand_tcp in panda_link0 frame.
         try:
             now = rclpy.time.Time()
             trans = self.tf_buffer.lookup_transform(
@@ -212,17 +210,7 @@ class VLABridgeNode(Node):
 
     @staticmethod
     def compute_absolute_pose(current_pose: PoseStamped, delta: dict):
-        """
-        Compute absolute pose from current pose and delta values.
-
-        Args:
-            current_pose (PoseStamped): Current end-effector pose.
-            delta (dict): Dict containing deltas from VLA backend.
-
-        Returns:
-            dict: Absolute pose with keys x, y, z, qx, qy, qz, qw.
-        """
-        # Apply position deltas
+        # Compute absolute pose from current pose and delta values.
         x = current_pose.pose.position.x + delta.get("delta_x", 0.0)
         y = current_pose.pose.position.y + delta.get("delta_y", 0.0)
         z = current_pose.pose.position.z + delta.get("delta_z", 0.0)
@@ -259,6 +247,36 @@ class VLABridgeNode(Node):
             "qz": target_q[2],
             "qw": target_q[3]
         }
+    
+    @staticmethod
+    def saturate_delta(delta: dict, max_trans: float = 0.1, max_rot: float = 0.1) -> dict:
+        # Scale translation and rotation deltas so they do not exceed limits. max_trans in meters, max_rot in radians.
+        dpos = np.array([
+            delta.get("delta_x", 0.0),
+            delta.get("delta_y", 0.0),
+            delta.get("delta_z", 0.0)
+        ])
+        dist = np.linalg.norm(dpos)
+        if dist > max_trans and dist > 0:
+            dpos = dpos * (max_trans / dist)
+        delta["delta_x"], delta["delta_y"], delta["delta_z"] = dpos.tolist()
+
+        # --- rotation ---
+        drot = R.from_euler(
+            'xyz',
+            [
+                delta.get("delta_roll", 0.0),
+                delta.get("delta_pitch", 0.0),
+                delta.get("delta_yaw", 0.0)
+            ]
+        )
+        angle = drot.magnitude()
+        if angle > max_rot and angle > 0:
+            axis = drot.as_rotvec() / angle
+            drot = R.from_rotvec(axis * max_rot)
+            delta["delta_roll"], delta["delta_pitch"], delta["delta_yaw"] = drot.as_euler('xyz').tolist()
+
+        return delta
 
 
 def main(args=None):
