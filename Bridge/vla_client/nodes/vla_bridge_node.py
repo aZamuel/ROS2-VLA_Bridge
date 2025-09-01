@@ -157,6 +157,7 @@ class VLABridgeNode(Node):
                 result = self.saturate_delta(result, 0.1, 0.1)
 
                 current_pose = self.get_current_pose()
+                current_widt = self.get_current_width() # TODO publish width
                 if current_pose:
                     absolute_pose = self.compute_absolute_pose(current_pose, result)
                     self.publish_pose(absolute_pose)
@@ -166,6 +167,32 @@ class VLABridgeNode(Node):
                 self.get_logger().warn(f"Backend response: {response.status_code}")
         except Exception as e:
             self.get_logger().error(f"Failed to send request: {e}")
+
+    def get_current_width(self):
+        """Compute current gripper width [m] from latest /joint_states."""
+        try:
+            j1 = self._joint_pos.get('panda_finger_joint1')
+            j2 = self._joint_pos.get('panda_finger_joint2')
+            if j1 is None or j2 is None:
+                self.get_logger().warn("Finger joints not yet in JointState; width unavailable.")
+                return None
+            width = float(j1 + j2)
+            return max(0.0, min(0.08, width))
+        except Exception as e:
+            self.get_logger().error(f"get_current_width error: {e}")
+            return None
+
+    @staticmethod
+    def compute_absolute_width(current_width, delta, step=0.02, min_w=0.0, max_w=0.08):
+        """Map delta_gripper to an absolute target width [m]."""
+        dg = float(delta.get("delta_gripper", 0.0))
+        base = current_width if current_width is not None else min_w
+        target = base + step * dg
+        if target < min_w:
+            return min_w
+        if target > max_w:
+            return max_w
+        return target
 
     def publish_pose(self, result):
         goal = CartesianImpedanceGoal()
