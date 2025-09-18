@@ -22,6 +22,7 @@ ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 autostart:=true
 ros2 run vla_client vla_bridge_node  
 ros2 run realsense2_camera realsense2_camera_node  
 ros2 launch franka_bringup multimode_franka.launch.py robot_ip_1:=172.16.0.2  
+ros2 launch franka_gripper gripper.launch.py robot_ip:=172.16.0.2  
 
 ### ... open new Terminal in docker
 

@@ -16,6 +16,8 @@ from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 from vla_interfaces.srv import SetPrompt
 from vla_interfaces.srv import SetRequest
+from rclpy.action import ActionClient #?
+from franka_msgs.action import Move
 
 
 
@@ -31,15 +33,17 @@ class VLABridgeNode(Node):
         # Configuration
         self.prompt = "go up"
         self.backend_url = "http://localhost:8000/predict"
-        self.request_interval = 1.0  # seconds
+        self.request_interval = 0.2  # seconds, also impacts scaling of deltas
         self.model = "openvla/openvla-7b"
         self.image_width = 224
         self.image_height = 224
+        self.grip_speed = 0.1
         self.active = False  # Initially stopped
 
         # Internal state
         self.latest_image = self.generate_dummy_image()
-        self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+        self.joint_states = {}
+        self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6] # TODO migrate arm logic to joint_states
         self.bridge = CvBridge()
 
         # Subscribers
@@ -52,6 +56,8 @@ class VLABridgeNode(Node):
             '/panda/panda_cartesian_impedance_controller/desired_pose',
             10
         )
+        # Actions
+        self.gripper_move_ac = ActionClient(self, Move, '/panda_gripper/move')
 
         # Timer for periodic requests
         self.timer = self.create_timer(self.request_interval, self.send_request)
@@ -96,7 +102,8 @@ class VLABridgeNode(Node):
         return response
     
     def joint_state_callback(self, msg):
-        self.latest_joint_angles = list(msg.position)
+        self.latest_joint_angles = list(msg.position) # TODO migrate arm logic to joint_states
+        self.joint_states = {n: p for n, p in zip(msg.name, msg.position or [])}
 
     def handle_toggle(self, request, response):
         self.active = request.data  # True to start, False to stop
@@ -157,42 +164,35 @@ class VLABridgeNode(Node):
                 result = self.saturate_delta(result, 0.1, 0.1)
 
                 current_pose = self.get_current_pose()
-                current_widt = self.get_current_width() # TODO publish width
                 if current_pose:
                     absolute_pose = self.compute_absolute_pose(current_pose, result)
                     self.publish_pose(absolute_pose)
                 else:
                     self.get_logger().warn("Skipping publish because current pose is unavailable.")
+                
+                current_width = self.get_current_width()
+                if current_width is not None and "delta_gripper" in result:
+                    absolute_width = self.compute_absolute_width(current_width, result)
+                    self.get_logger().info(
+                        f"grip cw={current_width} dg={result.get('delta_gripper')} -> aw={absolute_width}"
+                    )
+                    self.publish_gripper_width(absolute_width)
+                else:
+                    self.get_logger().warn("Skipping gripper publish: current width unavailable or no delta_gripper.")
             else:
                 self.get_logger().warn(f"Backend response: {response.status_code}")
         except Exception as e:
             self.get_logger().error(f"Failed to send request: {e}")
 
-    def get_current_width(self):
-        """Compute current gripper width [m] from latest /joint_states."""
-        try:
-            j1 = self._joint_pos.get('panda_finger_joint1')
-            j2 = self._joint_pos.get('panda_finger_joint2')
-            if j1 is None or j2 is None:
-                self.get_logger().warn("Finger joints not yet in JointState; width unavailable.")
-                return None
-            width = float(j1 + j2)
-            return max(0.0, min(0.08, width))
-        except Exception as e:
-            self.get_logger().error(f"get_current_width error: {e}")
-            return None
-
-    @staticmethod
-    def compute_absolute_width(current_width, delta, step=0.02, min_w=0.0, max_w=0.08):
-        """Map delta_gripper to an absolute target width [m]."""
-        dg = float(delta.get("delta_gripper", 0.0))
-        base = current_width if current_width is not None else min_w
-        target = base + step * dg
-        if target < min_w:
-            return min_w
-        if target > max_w:
-            return max_w
-        return target
+    def publish_gripper_width(self, width):
+        # publish a Move goal with target width [m].
+        if width is None:
+            return
+        goal = Move.Goal()
+        goal.width = float(width)
+        goal.speed = float(self.grip_speed)
+        self.gripper_move_ac.send_goal_async(goal)
+        self.get_logger().info(f"Started action with: {goal}")
 
     def publish_pose(self, result):
         goal = CartesianImpedanceGoal()
@@ -211,6 +211,20 @@ class VLABridgeNode(Node):
         
         self.pose_pub.publish(goal)
         self.get_logger().info(f"Published desired pose: {goal}")
+
+    def get_current_width(self):
+        # Compute current gripper width [m] from latest /joint_states.
+        try:
+            j1 = self.joint_states.get('panda_finger_joint1')
+            j2 = self.joint_states.get('panda_finger_joint2')
+            if j1 is None or j2 is None:
+                self.get_logger().warn("Finger joints not yet in JointState; width unavailable.")
+                return None
+            width = float(j1 + j2)
+            return max(0.0, min(0.08, width))
+        except Exception as e:
+            self.get_logger().error(f"get_current_width error: {e}")
+            return None
 
     def get_current_pose(self):
         # Fetch the current pose of panda_hand_tcp in panda_link0 frame.
@@ -234,6 +248,18 @@ class VLABridgeNode(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to get current pose: {e}")
             return None
+    
+    @staticmethod
+    def compute_absolute_width(current_width, delta, step=0.02, min_w=0.0, max_w=0.08):
+        # Map delta_gripper to an absolute target width considering limits.
+        dg = float(delta.get("delta_gripper", 0.0))
+        base = current_width if current_width is not None else min_w
+        target = base - step * dg
+        if target < min_w:
+            return min_w
+        if target > max_w:
+            return max_w
+        return target
 
     @staticmethod
     def compute_absolute_pose(current_pose: PoseStamped, delta: dict):
