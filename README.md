@@ -16,7 +16,7 @@ xhost +local:docker
 on the host system.
 
 * Now you can start all nodes (when robot is available!):  
-ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 autostart:=true  
+ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2  
 
 * Manually start nodes with (each In a new Terminal):  
 ros2 run vla_client vla_bridge_node  
