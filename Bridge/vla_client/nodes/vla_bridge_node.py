@@ -26,39 +26,52 @@ class VLABridgeNode(Node):
         super().__init__('vla_bridge_node')
         self.get_logger().info('vla_bridge_node has been started.')
 
+        # Topic parameterisation
+        self.declare_parameter('input_image_topic', '/camera/realsense2_camera/color/image_raw')
+        self.declare_parameter('joint_states_topic', '/joint_states')
+        self.declare_parameter('output_pose_topic', '/panda/panda_cartesian_impedance_controller/desired_pose')
+        self.declare_parameter('gripper_action', '/panda_gripper/move')
+        self.declare_parameter('tf_base_frame', 'panda_link0')
+        self.declare_parameter('tf_ee_frame', 'panda_hand_tcp')
+
+        self.input_image_topic  = self.get_parameter('input_image_topic').value
+        self.joint_states_topic = self.get_parameter('joint_states_topic').value
+        self.output_pose_topic  = self.get_parameter('output_pose_topic').value
+        self.gripper_action     = self.get_parameter('gripper_action').value
+        self.tf_base_frame      = self.get_parameter('tf_base_frame').value
+        self.tf_ee_frame        = self.get_parameter('tf_ee_frame').value
+
+        # Defaults
+        self.prompt             = "go up"
+        self.backend_url        = "http://localhost:8000/predict"
+        self.request_interval   = 0.2  # seconds, also impacts scaling of deltas
+        self.model              = "openvla/openvla-7b"
+        self.image_width        = 224
+        self.image_height       = 224
+        self.grip_speed         = 0.1
+        self.grip_handle        = None
+        self.active             = False  # Initially stopped
+
+        # Dummys
+        self.latest_image = self.generate_dummy_image()
+        self.joint_states = {}
+        self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6] # TODO migrate arm logic to joint_states
+        self.cv_bridge = CvBridge()
+
+        # Services
         self.create_service(SetBool, '/toggle_active', self.handle_toggle)
         self.create_service(SetPrompt, '/set_prompt', self.set_prompt_callback)
         self.create_service(SetRequest, '/set_request', self.set_request_callback)
 
-        # Configuration
-        self.prompt = "go up"
-        self.backend_url = "http://localhost:8000/predict"
-        self.request_interval = 0.2  # seconds, also impacts scaling of deltas
-        self.model = "openvla/openvla-7b"
-        self.image_width = 224
-        self.image_height = 224
-        self.grip_speed = 0.1
-        self.grip_handle = None
-        self.active = False  # Initially stopped
-
-        # Internal state
-        self.latest_image = self.generate_dummy_image()
-        self.joint_states = {}
-        self.latest_joint_angles = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6] # TODO migrate arm logic to joint_states
-        self.bridge = CvBridge()
-
         # Subscribers
-        self.create_subscription(Image, '/camera/realsense2_camera/color/image_raw', self.image_callback, 10)
-        self.create_subscription(JointState, '/joint_states', self.joint_state_callback, 10)
+        self.create_subscription(Image, self.input_image_topic, self.image_callback, 10)
+        self.create_subscription(JointState, self.joint_states_topic, self.joint_state_callback, 10)
 
         # Publishers
-        self.pose_pub = self.create_publisher(
-            CartesianImpedanceGoal,
-            '/panda/panda_cartesian_impedance_controller/desired_pose',
-            10
-        )
+        self.pose_pub = self.create_publisher(CartesianImpedanceGoal, self.output_pose_topic, 10)
+
         # Actions
-        self.gripper_move_ac = ActionClient(self, Move, '/panda_gripper/move')
+        self.gripper_move_ac = ActionClient(self, Move, self.gripper_action)
 
         # Timer for periodic requests
         self.timer = self.create_timer(self.request_interval, self.send_request)
@@ -88,7 +101,7 @@ class VLABridgeNode(Node):
 
     def image_callback(self, msg):
         try:
-            cv_image_bgr = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_image_bgr = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.latest_image = self.encode_and_resize(cv_image_bgr)
             if self.latest_image is None:
                 self.get_logger().warn("Latest image not set due to encode failure.")
@@ -196,8 +209,8 @@ class VLABridgeNode(Node):
         goal = Move.Goal()
         goal.width = float(width)
         goal.speed = float(self.grip_speed)
-        fut = self.gripper_move_ac.send_goal_async(goal)
-        fut.add_done_callback(lambda f: setattr(self, "grip_handle", f.result() if f.result().accepted else None))
+        future = self.gripper_move_ac.send_goal_async(goal)
+        future.add_done_callback(lambda f: setattr(self, "grip_handle", f.result() if f.result().accepted else None)) # TODO double check
         self.get_logger().info(f"Started action with: {goal}")
 
     def publish_pose(self, result):
@@ -232,18 +245,18 @@ class VLABridgeNode(Node):
             return None
 
     def get_current_pose(self):
-        # Fetch the current pose of panda_hand_tcp in panda_link0 frame.
+        # Fetch the current pose of tf_ee_frame (end-effector) in tf_base_frame (robot base) frame.
         try:
             now = rclpy.time.Time()
             trans = self.tf_buffer.lookup_transform(
-                'panda_link0',
-                'panda_hand_tcp',
+                self.tf_base_frame,
+                self.tf_ee_frame,
                 now,
                 timeout=rclpy.duration.Duration(seconds=1.0)
             )
 
             pose = PoseStamped()
-            pose.header.frame_id = 'panda_link0'
+            pose.header.frame_id = 'tf_ee_frame'
             pose.pose.position.x = trans.transform.translation.x
             pose.pose.position.y = trans.transform.translation.y
             pose.pose.position.z = trans.transform.translation.z
