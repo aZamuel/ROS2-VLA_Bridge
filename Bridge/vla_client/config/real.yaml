@@ -1,0 +1,7 @@
+vla_bridge_node:
+  ros__parameters:
+    input_image_topic: "/camera/realsense2_camera/color/image_raw"
+    joint_states_topic: "/joint_states"
+    output_pose_topic: "/panda/panda_cartesian_impedance_controller/desired_pose"
+    tf_base_frame: "panda_link0"
+    tf_ee_frame: "panda_hand_tcp"

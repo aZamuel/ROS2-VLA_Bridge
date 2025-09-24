@@ -18,6 +18,7 @@ from vla_interfaces.srv import SetPrompt
 from vla_interfaces.srv import SetRequest
 from rclpy.action import ActionClient
 from franka_msgs.action import Move
+from std_srvs.srv import Trigger
 
 
 
@@ -31,6 +32,7 @@ class VLABridgeNode(Node):
         self.declare_parameter('joint_states_topic', '/joint_states')
         self.declare_parameter('output_pose_topic', '/panda/panda_cartesian_impedance_controller/desired_pose')
         self.declare_parameter('gripper_action', '/panda_gripper/move')
+        self.declare_parameter('gripper_stop', '/panda_gripper/stop')
         self.declare_parameter('tf_base_frame', 'panda_link0')
         self.declare_parameter('tf_ee_frame', 'panda_hand_tcp')
 
@@ -38,6 +40,7 @@ class VLABridgeNode(Node):
         self.joint_states_topic = self.get_parameter('joint_states_topic').value
         self.output_pose_topic  = self.get_parameter('output_pose_topic').value
         self.gripper_action     = self.get_parameter('gripper_action').value
+        self.gripper_stop       = self.get_parameter('gripper_stop').value
         self.tf_base_frame      = self.get_parameter('tf_base_frame').value
         self.tf_ee_frame        = self.get_parameter('tf_ee_frame').value
 
@@ -49,7 +52,6 @@ class VLABridgeNode(Node):
         self.image_width        = 224
         self.image_height       = 224
         self.grip_speed         = 0.1
-        self.grip_handle        = None
         self.active             = False  # Initially stopped
 
         # Dummys
@@ -72,6 +74,9 @@ class VLABridgeNode(Node):
 
         # Actions
         self.gripper_move_ac = ActionClient(self, Move, self.gripper_action)
+
+        # Client
+        self.gripper_stop = self.create_client(Trigger, self.gripper_stop)
 
         # Timer for periodic requests
         self.timer = self.create_timer(self.request_interval, self.send_request)
@@ -188,8 +193,11 @@ class VLABridgeNode(Node):
                 if current_width is not None and "delta_gripper" in result:
                     step = self.grip_speed * self.request_interval * 0.5 # choosing a acheevable stepsize
                     absolute_width = self.compute_absolute_width(current_width, result, step)
-                    self.get_logger().info(f"grip cw={current_width} dg={result.get('delta_gripper')} -> aw={absolute_width}")
-                    self.publish_gripper_width(absolute_width)
+                    if abs(current_width - absolute_width) > 0.001:
+                        self.get_logger().info(f"grip cw={current_width} dg={result.get('delta_gripper')} -> aw={absolute_width}")
+                        self.publish_gripper_width(absolute_width)
+                    else:
+                        self.get_logger().info("width difference < 0.001")
                 else:
                     self.get_logger().warn("Skipping gripper publish: current width unavailable or no delta_gripper.")
             else:
@@ -201,17 +209,11 @@ class VLABridgeNode(Node):
         # publish a Move goal with target width [m].
         if width is None or not self.active:
             return
-        if self.grip_handle:
-            try:
-                self.grip_handle.cancel_goal_async()
-            except Exception:
-                pass
+        self.gripper_stop.call_async(Trigger.Request())
         goal = Move.Goal()
         goal.width = float(width)
         goal.speed = float(self.grip_speed)
-        future = self.gripper_move_ac.send_goal_async(goal)
-        future.add_done_callback(lambda f: setattr(self, "grip_handle", f.result() if f.result().accepted else None)) # TODO double check
-        self.get_logger().info(f"Started action with: {goal}")
+        self.gripper_move_ac.send_goal_async(goal)
 
     def publish_pose(self, result):
         goal = CartesianImpedanceGoal()
