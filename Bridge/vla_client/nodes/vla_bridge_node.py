@@ -16,7 +16,7 @@ from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 from vla_interfaces.srv import SetPrompt
 from vla_interfaces.srv import SetRequest
-from rclpy.action import ActionClient #?
+from rclpy.action import ActionClient
 from franka_msgs.action import Move
 
 
@@ -38,6 +38,7 @@ class VLABridgeNode(Node):
         self.image_width = 224
         self.image_height = 224
         self.grip_speed = 0.1
+        self.grip_handle = None
         self.active = False  # Initially stopped
 
         # Internal state
@@ -160,8 +161,8 @@ class VLABridgeNode(Node):
             response = requests.post(self.backend_url, json=payload)
             if response.status_code == 200:
                 result = response.json()
-                self.get_logger().info(f"Request successful: {result}")
                 result = self.saturate_delta(result, 0.1, 0.1)
+                self.get_logger().info(f"Request successful") # ad {results} when needed
 
                 current_pose = self.get_current_pose()
                 if current_pose:
@@ -172,10 +173,9 @@ class VLABridgeNode(Node):
                 
                 current_width = self.get_current_width()
                 if current_width is not None and "delta_gripper" in result:
-                    absolute_width = self.compute_absolute_width(current_width, result)
-                    self.get_logger().info(
-                        f"grip cw={current_width} dg={result.get('delta_gripper')} -> aw={absolute_width}"
-                    )
+                    step = self.grip_speed * self.request_interval * 0.5 # choosing a acheevable stepsize
+                    absolute_width = self.compute_absolute_width(current_width, result, step)
+                    self.get_logger().info(f"grip cw={current_width} dg={result.get('delta_gripper')} -> aw={absolute_width}")
                     self.publish_gripper_width(absolute_width)
                 else:
                     self.get_logger().warn("Skipping gripper publish: current width unavailable or no delta_gripper.")
@@ -186,18 +186,23 @@ class VLABridgeNode(Node):
 
     def publish_gripper_width(self, width):
         # publish a Move goal with target width [m].
-        if width is None:
+        if width is None or not self.active:
             return
+        if self.grip_handle:
+            try:
+                self.grip_handle.cancel_goal_async()
+            except Exception:
+                pass
         goal = Move.Goal()
         goal.width = float(width)
         goal.speed = float(self.grip_speed)
-        self.gripper_move_ac.send_goal_async(goal)
+        fut = self.gripper_move_ac.send_goal_async(goal)
+        fut.add_done_callback(lambda f: setattr(self, "grip_handle", f.result() if f.result().accepted else None))
         self.get_logger().info(f"Started action with: {goal}")
 
     def publish_pose(self, result):
         goal = CartesianImpedanceGoal()
         
-        # For simplicity assume result provides absolute target pose:
         goal.pose.position.x = result["x"]
         goal.pose.position.y = result["y"]
         goal.pose.position.z = result["z"]
@@ -254,7 +259,7 @@ class VLABridgeNode(Node):
         # Map delta_gripper to an absolute target width considering limits.
         dg = float(delta.get("delta_gripper", 0.0))
         base = current_width if current_width is not None else min_w
-        target = base - step * dg
+        target = base + step * dg # adding? deltas
         if target < min_w:
             return min_w
         if target > max_w:
