@@ -290,14 +290,7 @@ RUN echo 'spacenavd' >> ${HOMEDIR}/.bashrc
 
 WORKDIR /root/humble_ws
 
-# Setup VLA Wrapper for dev in container
-COPY ./Backend ./VLA_Wrapper/
-RUN apt-get update && apt-get install -y python3-pip
-RUN python3 -m pip install -r VLA_Wrapper/requirements.txt
-EXPOSE 8000
-#CMD ["ros2", "run", "vla_client", "vla_bridge_node"]
-
-# copy VLA Requester package into the workspace
+# copy VLA client (and interfaces) package into the workspace
 COPY ./Bridge/vla_client/ ./src/vla_client/
 RUN chmod +x ./src/vla_client/nodes/vla_bridge_node.py
 COPY ./Bridge/vla_interfaces/ ./src/vla_interfaces/
