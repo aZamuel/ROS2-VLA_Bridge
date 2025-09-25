@@ -42,16 +42,10 @@ class VLAWrapper:
         logger.info(f"OpenVLA loaded on {self.device} (dtype={dtype}, flash_attn={attn_impl is not None})")
         return model, processor, dtype
 
-    def predict(self, image: Any, instruction: str) -> Dict[str, float]:
+    def predict(self, bgr: np.ndarray, instruction: str) -> Dict[str, float]:
         # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
-            image_bytes = base64.b64decode(image)
-            np_arr = np.frombuffer(image_bytes, np.uint8)
-            bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            if bgr is None:
-                raise ValueError("cv2.imdecode returned None")
-            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(rgb)
+            pil_img = self._pil_from_bgr_openvla7b(bgr)
         except Exception as e:
             logger.exception(f"Failed to decode image: {e}")
             # Conservative no-op deltas if vision fails
@@ -92,6 +86,12 @@ class VLAWrapper:
                 "delta_pitch":float(dpitch),
                 "delta_yaw":float(dyaw),
                 "delta_gripper":float(grip)}
+    
+    def _pil_from_bgr_openvla7b(self, bgr: np.ndarray) -> Image.Image:
+        # BGR → RGB → 224×224 → PIL(RGB)
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        rgb = cv2.resize(rgb, (224, 224), interpolation=cv2.INTER_AREA)
+        return Image.fromarray(rgb).convert("RGB")
 
 if __name__ == "__main__":
     wrapper = VLAWrapper(model_name="openvla/openvla-7b")

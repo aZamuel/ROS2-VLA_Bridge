@@ -84,21 +84,18 @@ class VLABridgeNode(Node):
         # TF listener setup
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-
-    def generate_dummy_image(self):
-        # Create black dummy image and encode
-        import numpy as np
-        dummy_image = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
-        return self.encode_and_resize(dummy_image)
     
-    def encode_and_resize(self, img_bgr):
-        # BGR to RGB, resize, JPEG to base64
+    def generate_dummy_image(self):
+        # dummy image and encode once (size is arbitrary here)
+        dummy_image = np.zeros((240, 320, 3), dtype=np.uint8)
+        return self.encode_png(dummy_image)
+    
+    def encode_png(self, img_bgr):
+        # Encode original BGR image as PNG → base64
         try:
-            rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-            resized = cv2.resize(rgb, (self.image_width, self.image_height), interpolation=cv2.INTER_AREA)
-            ok, buffer = cv2.imencode('.jpg', resized)
+            ok, buffer = cv2.imencode('.png', img_bgr)
             if not ok:
-                raise RuntimeError("cv2.imencode failed")
+                raise RuntimeError("cv2.imencode('.png') failed")
             return base64.b64encode(buffer).decode('utf-8')
         except Exception as e:
             self.get_logger().error(f"Preprocess/encode failed: {e}")
@@ -107,7 +104,7 @@ class VLABridgeNode(Node):
     def image_callback(self, msg):
         try:
             cv_image_bgr = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.latest_image = self.encode_and_resize(cv_image_bgr)
+            self.latest_image = self.encode_png(cv_image_bgr)
             if self.latest_image is None:
                 self.get_logger().warn("Latest image not set due to encode failure.")
         except Exception as e:

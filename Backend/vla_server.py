@@ -1,6 +1,7 @@
 import base64, io # for debugging
 import cv2, numpy as np
 from flask import send_file
+
 last_image = None  # latest decoded frame
 
 from flask import Flask, request, jsonify
@@ -20,17 +21,19 @@ def predict():
     if (model != "openvla/openvla-7b"):
         return jsonify({"error": "Only openvla/openvla-7b available"}), 401
     
-    # decode once for debugging
+    # Image decoding
     global last_image
     try:
         buf = np.frombuffer(base64.b64decode(image_jason), dtype=np.uint8)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        if img is not None:
-            last_image = img
+        if img is None:
+            return jsonify({"error": "cv2.imdecode returned None"}), 400
+        last_image = img
     except Exception:
-        last_image = None
-
-    result = vla.predict(image=image_jason, instruction=instruction)
+        last_image = None # necessary?
+        return jsonify({"error": "image decode failed"}), 400
+    
+    result = vla.predict(img, instruction)
     return jsonify(result)
 
 @app.route("/debug/last_image.jpg", methods=["GET"])
