@@ -6,9 +6,26 @@ import numpy as np
 from PIL import Image
 import torch
 from transformers import AutoModelForVision2Seq, AutoProcessor
+import os
+import json
+from pathlib import Path
+
+# Fixed local export of your fine-tuned OpenVLA (override via env if you like)
+LOCAL_OPENVLA_DIR = os.environ.get(
+    "OPENVLA_LOCAL_DIR",
+    os.path.expanduser(
+        "/home/srochlitzer/Desktop/vla-finetuning/checkpoints/openvla-7b+openvla_finetune_franka3+b16+lr-0.0005+lora-r32+dropout-0.0--image_aug--30000_chkpt"
+    )
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
+
+def _hf_dir_ok(p: str) -> bool:
+    try:
+        return (Path(p) / "config.json").exists()
+    except Exception:
+        return False
 
 class VLAWrapper:
     def __init__(self, model_name: str = "openvla/openvla-7b"):
@@ -30,16 +47,43 @@ class VLAWrapper:
             except Exception as e:
                 logger.info(f"FlashAttention not available: {e}")
 
-        processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
+        # [ADDED] choose local-vs-hub source when model_name == openvla/openvla-7b
+        source = self.model_name
+        if self.model_name == "openvla/openvla-7b" and _hf_dir_ok(LOCAL_OPENVLA_DIR):
+            source = LOCAL_OPENVLA_DIR
+            logger.info(f"Loading OpenVLA from local directory: {source}")
+        elif self.model_name == "openvla/openvla-7b":
+            logger.warning(
+                f"Local fine-tune not found at {LOCAL_OPENVLA_DIR}; falling back to HF hub '{self.model_name}'."
+            )
+
+        # [CHANGED] load from `source` (could be local dir or HF repo id)
+        processor = AutoProcessor.from_pretrained(source, trust_remote_code=True)
         model = AutoModelForVision2Seq.from_pretrained(
-            self.model_name,
+            source,
             attn_implementation=attn_impl,
             torch_dtype=dtype,
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         ).to(self.device).eval()
 
-        logger.info(f"OpenVLA loaded on {self.device} (dtype={dtype}, flash_attn={attn_impl is not None})")
+        # [ADDED] optional dataset statistics for local runs (mirrors deploy.py behavior)
+        try:
+            if os.path.isdir(source):
+                stats_path = Path(source) / "dataset_statistics.json"
+                if stats_path.exists():
+                    with open(stats_path, "r") as f:
+                        model.norm_stats = json.load(f)
+                    logger.info(f"Loaded dataset_statistics.json from {stats_path}")
+                else:
+                    logger.warning("No dataset_statistics.json found; proceeding without custom unnorm stats.")
+        except Exception as e:
+            logger.warning(f"Failed to load dataset statistics: {e}")
+
+        logger.info(
+            f"OpenVLA loaded from '{source}' on {self.device} "
+            f"(dtype={dtype}, flash_attn={attn_impl is not None})"
+        )
         return model, processor, dtype
 
     def predict(self, bgr: np.ndarray, instruction: str) -> Dict[str, float]:
@@ -70,7 +114,7 @@ class VLAWrapper:
                         inputs[k] = inputs[k].to("cuda:0", dtype=torch.bfloat16)
             
             # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
-            action = self.model.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
+            action = self.model.predict_action(**inputs, unnorm_key="openvla_finetune_franka3", do_sample=False)
 
         # Robust type normalize
         if isinstance(action, torch.Tensor):
