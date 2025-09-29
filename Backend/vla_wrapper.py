@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Dict
 import base64
 import cv2
 import numpy as np
@@ -9,6 +9,9 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
+HARDCODED = {
+    "HARD: go up":{"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+}
 
 class VLAWrapper:
     def __init__(self, model_name: str = "openvla/openvla-7b"):
@@ -43,6 +46,10 @@ class VLAWrapper:
         return model, processor, dtype
 
     def predict(self, bgr: np.ndarray, instruction: str) -> Dict[str, float]:
+        if instruction in HARDCODED:
+            logger.info(f"This response is HARDCODED: {HARDCODED[instruction]}")
+            return HARDCODED[instruction]
+
         # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
             pil_img = self._pil_from_bgr_openvla7b(bgr)
