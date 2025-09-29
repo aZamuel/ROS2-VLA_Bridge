@@ -177,7 +177,13 @@ class VLABridgeNode(Node):
             if response.status_code == 200:
                 result = response.json()
                 result = self.saturate_delta(result, 0.1, 0.1)
-                self.get_logger().info(f"Request successful") # ad {results} when needed
+                self.get_logger().info(
+                    f"Request successful"
+                    f": x={result.get('delta_x', 0.0):.3f}, "
+                    f"y={result.get('delta_y', 0.0):.3f}, "
+                    f"z={result.get('delta_z', 0.0):.3f}, "
+                    f"g={result.get('delta_gripper', 0.0):.3f}"
+                ) # ad {result} when needed
 
                 current_pose = self.get_current_pose()
                 if current_pose:
@@ -227,7 +233,7 @@ class VLABridgeNode(Node):
         goal.q_n = [0.0] * 7  # Just a placeholder; adjust if needed
         
         self.pose_pub.publish(goal)
-        self.get_logger().info(f"Published desired pose: {goal}")
+        # self.get_logger().info(f"Published desired pose: {goal}")
 
     def get_current_width(self):
         # Compute current gripper width [m] from latest /joint_states.
