@@ -4,10 +4,12 @@ import requests
 import base64
 import cv2
 import numpy as np
+import time
+import csv
+import os
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
 from cv_bridge import CvBridge
 from std_srvs.srv import SetBool
 from multi_mode_control_msgs.msg import CartesianImpedanceGoal
@@ -35,6 +37,8 @@ class VLABridgeNode(Node):
         self.declare_parameter('gripper_stop', '/panda_gripper/stop')
         self.declare_parameter('tf_base_frame', 'panda_link0')
         self.declare_parameter('tf_ee_frame', 'panda_hand_tcp')
+        self.declare_parameter('record_timings', False)
+        self.declare_parameter('timings_csv_path', '/tmp/vla_timings.csv')
 
         self.input_image_topic  = self.get_parameter('input_image_topic').value
         self.joint_states_topic = self.get_parameter('joint_states_topic').value
@@ -43,6 +47,8 @@ class VLABridgeNode(Node):
         self.gripper_stop       = self.get_parameter('gripper_stop').value
         self.tf_base_frame      = self.get_parameter('tf_base_frame').value
         self.tf_ee_frame        = self.get_parameter('tf_ee_frame').value
+        self.record_timings     = bool(self.get_parameter('record_timings').value)
+        self.timings_csv_path   = str(self.get_parameter('timings_csv_path').value)
 
         # Defaults
         self.prompt             = "go up"
@@ -84,6 +90,17 @@ class VLABridgeNode(Node):
         # TF listener setup
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        # Create csv file if record_timings is set
+        self._ensure_csv()
+
+    def _ensure_csv(self):
+        if not self.record_timings:
+            return
+        exists = os.path.exists(self.timings_csv_path)
+        if not exists:
+            with open(self.timings_csv_path, 'w', newline='') as f:
+                csv.writer(f).writerow(["t_client_start", "t_publish", "prompt"])
     
     def generate_dummy_image(self):
         # dummy image and encode once (size is arbitrary here)
@@ -160,6 +177,9 @@ class VLABridgeNode(Node):
     def send_request(self):
         if not self.active:
             return  # Skip if inactive
+        
+        if self.record_timings:
+            t_client_start = time.perf_counter_ns()
     
         if self.latest_image is None or not self.latest_joint_angles:
             self.get_logger().warn("Waiting for image and joint states...")
@@ -203,6 +223,10 @@ class VLABridgeNode(Node):
                         self.get_logger().info("width difference < 0.001")
                 else:
                     self.get_logger().warn("Skipping gripper publish: current width unavailable or no delta_gripper.")
+                if self.record_timings:
+                    t_publish = time.perf_counter_ns()
+                    with open(self.timings_csv_path, 'a', newline='') as f:
+                        csv.writer(f).writerow([t_client_start, t_publish, str(self.prompt)])
             else:
                 self.get_logger().warn(f"Backend response: {response.status_code}")
         except Exception as e:
