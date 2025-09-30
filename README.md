@@ -9,14 +9,21 @@ This is the Project to the bachelor thesis of Samuel Rochlitzer in Computer Scie
 
 * As a starting point I used the ros2_multipanda Dockerfile from the RobotReplicationFiles provided by my Tutor David Ott. Using the similar commands one can start the docker by running these lines in the base repository:  
 docker build -t ros2_vla_bridge .  
-docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --privileged --device=/dev/bus/usb ros2_vla_bridge  
+docker run -it --rm \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$PWD/logs:/logs" \
+  --net=host --privileged --device=/dev/bus/usb \
+  ros2_vla_bridge  
 
 * To pass on any display correctly one should also run  
 xhost +local:docker  
 on the host system.
 
 * Now you can start all nodes (when robot is available!):  
-ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2  
+ros2 launch vla_client launch_all.launch.py  
+Or for more configuration:  
+ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 backend_url:=http://localhost:8000/predict profile:=real record_timings:=true timings_csv_path:=/logs/vla_timings.csv  
 
 * Manually start nodes with (each In a new Terminal):  
 ros2 run vla_client vla_bridge_node  
