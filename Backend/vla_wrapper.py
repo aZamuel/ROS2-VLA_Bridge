@@ -32,6 +32,7 @@ class VLAWrapper:
         self.model_name = model_name
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model, self.processor, self.dtype = self._load_model()
+        self.unnorm_key_name = "bridge_orig"
 
     def _load_model(self):
         use_cuda = torch.cuda.is_available()
@@ -75,6 +76,7 @@ class VLAWrapper:
                     with open(stats_path, "r") as f:
                         model.norm_stats = json.load(f)
                     logger.info(f"Loaded dataset_statistics.json from {stats_path}")
+                    self.unnorm_key_name = "openvla_finetune_franka3"
                 else:
                     logger.warning("No dataset_statistics.json found; proceeding without custom unnorm stats.")
         except Exception as e:
@@ -114,7 +116,7 @@ class VLAWrapper:
                         inputs[k] = inputs[k].to("cuda:0", dtype=torch.bfloat16)
             
             # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
-            action = self.model.predict_action(**inputs, unnorm_key="openvla_finetune_franka3", do_sample=False)
+            action = self.model.predict_action(**inputs, unnorm_key=self.unnorm_key_name, do_sample=False)
 
         # Robust type normalize
         if isinstance(action, torch.Tensor):
