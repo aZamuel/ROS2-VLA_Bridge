@@ -27,9 +27,9 @@ multi_mode_controller:
     arm_count: 1
     arm_1:
       arm_id: panda
-      translational_stiffness: [3000, 3000, 10000]
-      rotational_stiffness:    [300, 300, 300]
-      damping_ratio: 0.7
+      translational_stiffness: [5000, 5000, 5000]
+      rotational_stiffness:    [500, 500, 500]
+      damping_ratio: 0.8
     controllers: ["panda_joint_impedance_controller", "panda_cartesian_impedance_controller"]
     resources:
         panda_joint_impedance_controller: ["panda"]
