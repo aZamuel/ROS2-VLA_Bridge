@@ -121,17 +121,8 @@ class VLAWrapper:
         # 3) Tokenize & infer
         with torch.no_grad():
             inputs = self.processor(prompt, pil_img).to(self.device)
-
-            use_cuda = torch.cuda.is_available()
-            if use_cuda:
-                # move everything to GPU WITHOUT changing dtype
-                inputs = {k: (v.to("cuda:0") if hasattr(v, "to") else v) for k, v in inputs.items()}
-                # cast ONLY image-like tensors to bf16
-                for k in ("pixel_values", "pixel_values_fused", "vision_pixels", "image"):
-                    if k in inputs and hasattr(inputs[k], "to"):
-                        inputs[k] = inputs[k].to("cuda:0", dtype=torch.bfloat16)
-            
-            # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs.
+            if torch.cuda.is_available() and "pixel_values" in inputs:
+                inputs["pixel_values"] = inputs["pixel_values"].to(dtype=torch.bfloat16)
             action = self.model.predict_action(**inputs, unnorm_key=self.unnorm_key_name, do_sample=False)
 
         # Robust type normalize
@@ -140,6 +131,7 @@ class VLAWrapper:
         else:
             action = np.asarray(action)
         vals = (action.ravel().tolist() + [0.0]*7)[:7]
+        # logger.info(f"vals: {vals}")
         dx, dy, dz, droll, dpitch, dyaw, grip = vals
         return {"delta_x":float(dx),
                 "delta_y":float(dy),

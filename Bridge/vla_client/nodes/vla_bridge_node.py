@@ -199,10 +199,13 @@ class VLABridgeNode(Node):
                 result = self.saturate_delta(result, 0.1, 0.1)
                 self.get_logger().info(
                     f"Request successful"
-                    f": x={result.get('delta_x', 0.0):.3f}, "
-                    f"y={result.get('delta_y', 0.0):.3f}, "
-                    f"z={result.get('delta_z', 0.0):.3f}, "
-                    f"g={result.get('delta_gripper', 0.0):.3f}"
+                    f": x={result.get('delta_x', 0.0):.5f}, "
+                    f"y={result.get('delta_y', 0.0):.5f}, "
+                    f"z={result.get('delta_z', 0.0):.5f}, "
+                    f"ro={result.get('delta_roll', 0.0):.5f}, "
+                    f"pi={result.get('delta_pitch', 0.0):.5f}, "                    
+                    f"ya={result.get('delta_yaw', 0.0):.5f}, "
+                    f"g={result.get('delta_gripper', 0.0):.5f}"
                 ) # ad {result} when needed
 
                 current_pose = self.get_current_pose()
