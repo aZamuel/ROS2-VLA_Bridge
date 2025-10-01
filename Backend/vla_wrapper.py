@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
 HARDCODED = {
     "HARD: go up":          {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: go down":        {"delta_x": 0.0, "delta_y": 0.0, "delta_z": -0.05, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: go down":        {"delta_x": 0.0, "delta_y": 0.0, "delta_z": -0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
     "HARD: rol left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
     "HARD: rol right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": -0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
     "HARD: pitch up":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.5, "delta_yaw": 0.0, "delta_gripper": 0.0},
@@ -43,8 +43,8 @@ class VLAWrapper:
     def __init__(self, model_name: str = "openvla/openvla-7b"):
         self.model_name = model_name
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model, self.processor, self.dtype = self._load_model()
         self.unnorm_key_name = "bridge_orig"
+        self.model, self.processor, self.dtype = self._load_model()
 
     def _load_model(self):
         use_cuda = torch.cuda.is_available()
@@ -60,7 +60,7 @@ class VLAWrapper:
             except Exception as e:
                 logger.info(f"FlashAttention not available: {e}")
 
-        # [ADDED] choose local-vs-hub source when model_name == openvla/openvla-7b
+        # choose local-vs-hub source when available
         source = self.model_name
         if self.model_name == "openvla/openvla-7b" and _hf_dir_ok(LOCAL_OPENVLA_DIR):
             source = LOCAL_OPENVLA_DIR
@@ -70,7 +70,7 @@ class VLAWrapper:
                 f"Local fine-tune not found at {LOCAL_OPENVLA_DIR}; falling back to HF hub '{self.model_name}'."
             )
 
-        # [CHANGED] load from `source` (could be local dir or HF repo id)
+        # load from `source` (could be local dir or HF repo id)
         processor = AutoProcessor.from_pretrained(source, trust_remote_code=True)
         model = AutoModelForVision2Seq.from_pretrained(
             source,
@@ -80,7 +80,7 @@ class VLAWrapper:
             trust_remote_code=True,
         ).to(self.device).eval()
 
-        # [ADDED] optional dataset statistics for local runs (mirrors deploy.py behavior)
+        # optional dataset statistics for local runs (mirrors deploy.py behavior)
         try:
             if os.path.isdir(source):
                 stats_path = Path(source) / "dataset_statistics.json"
@@ -131,7 +131,7 @@ class VLAWrapper:
                     if k in inputs and hasattr(inputs[k], "to"):
                         inputs[k] = inputs[k].to("cuda:0", dtype=torch.bfloat16)
             
-            # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs. 
+            # unnorm_key matches BridgeData V2 name in README; adjust if your fine-tune differs.
             action = self.model.predict_action(**inputs, unnorm_key=self.unnorm_key_name, do_sample=False)
 
         # Robust type normalize
