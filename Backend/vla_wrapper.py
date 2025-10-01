@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Dict
 import base64
 import cv2
 import numpy as np
@@ -20,6 +20,18 @@ LOCAL_OPENVLA_DIR = os.environ.get(
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VLAWrapper")
+HARDCODED = {
+    "HARD: go up":          {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: go down":        {"delta_x": 0.0, "delta_y": 0.0, "delta_z": -0.05, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: rol left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: rol right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": -0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: pitch up":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.5, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: pitch down":     {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": -0.5, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: yaw left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.5, "delta_gripper": 0.0},
+    "HARD: yaw right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": -0.5, "delta_gripper": 0.0},
+    "HARD: open gripper":   {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.05},
+    "HARD: close gripper":  {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": -0.05}
+}
 
 def _hf_dir_ok(p: str) -> bool:
     try:
@@ -89,6 +101,10 @@ class VLAWrapper:
         return model, processor, dtype
 
     def predict(self, bgr: np.ndarray, instruction: str) -> Dict[str, float]:
+        if instruction in HARDCODED:
+            logger.info(f"This response is HARDCODED: {HARDCODED[instruction]}")
+            return HARDCODED[instruction]
+
         # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
             pil_img = self._pil_from_bgr_openvla7b(bgr)
