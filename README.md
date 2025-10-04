@@ -23,7 +23,7 @@ on the host system.
 * Now you can start all nodes (when robot is available!):  
 ros2 launch vla_client launch_all.launch.py  
 Or for more configuration:  
-ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 backend_url:=http://localhost:8000/predict profile:=real record_timings:=true timings_csv_path:=/logs/vla_timings.csv  
+ros2 launch vla_client launch_all.launch.py robot_ip:=172.16.0.2 backend_url:=http://localhost:8000/predict profile:=real record:=true records_csv_path:=/logs/records.csv  
 
 * Manually start nodes with (each In a new Terminal):  
 ros2 run vla_client vla_bridge_node  

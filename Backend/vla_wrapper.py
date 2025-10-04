@@ -9,6 +9,7 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 import os
 import json
 from pathlib import Path
+import time  # to record vla timings
 
 # Fixed local export of your fine-tuned OpenVLA (override via env if you like)
 LOCAL_OPENVLA_DIR = os.environ.get(
@@ -32,6 +33,9 @@ HARDCODED = {
     "HARD: open gripper":   {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.05},
     "HARD: close gripper":  {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": -0.05}
 }
+
+def now_ns() -> int:
+    return time.perf_counter_ns()
 
 def _hf_dir_ok(p: str) -> bool:
     try:
@@ -101,9 +105,19 @@ class VLAWrapper:
         return model, processor, dtype
 
     def predict(self, bgr: np.ndarray, instruction: str) -> Dict[str, float]:
+        # returns a dict with all deltas and meta dict (timing and error)
+        # a list of HARDCODED responses sidestep the vla for testing
         if instruction in HARDCODED:
             logger.info(f"This response is HARDCODED: {HARDCODED[instruction]}")
-            return HARDCODED[instruction]
+            t = now_ns()  # no VLA used; stamp once
+            hard = dict(HARDCODED[instruction])  # copy deltas
+            hard["meta"] = {
+                "t_vla_in_ns": t,
+                "t_vla_out_ns": t,
+                "success": True,
+                "error": "hardcoded"
+            }
+            return hard
 
         # 1) Decode Base64 → NumPy(BGR) → PIL(RGB)
         try:
@@ -113,17 +127,20 @@ class VLAWrapper:
             # Conservative no-op deltas if vision fails
             return {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0,
                     "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0,
-                    "delta_gripper": 0.0}
+                    "delta_gripper": 0.0,
+                    "meta": {"t_vla_in_ns": now_ns(), "t_vla_out_ns": now_ns(),"success": False, "error": "decode_failed"}}
 
         # 2) Prompt (per OpenVLA README format)
-        prompt = f"In: What action should the robot take to {instruction}?\nOut:"  # 
+        prompt = f"In: What action should the robot take to {instruction}?\nOut:"
 
         # 3) Tokenize & infer
         with torch.no_grad():
             inputs = self.processor(prompt, pil_img).to(self.device)
             if torch.cuda.is_available() and "pixel_values" in inputs:
                 inputs["pixel_values"] = inputs["pixel_values"].to(dtype=torch.bfloat16)
+            t_vla_in = now_ns()
             action = self.model.predict_action(**inputs, unnorm_key=self.unnorm_key_name, do_sample=False)
+            t_vla_out = now_ns()
 
         # Robust type normalize
         if isinstance(action, torch.Tensor):
@@ -139,7 +156,13 @@ class VLAWrapper:
                 "delta_roll":float(droll),
                 "delta_pitch":float(dpitch),
                 "delta_yaw":float(dyaw),
-                "delta_gripper":float(grip)}
+                "delta_gripper":float(grip),
+                "meta": {
+                    "t_vla_in_ns": t_vla_in,
+                    "t_vla_out_ns": t_vla_out,
+                    "success": True,
+                    "error": ""
+                }}
     
     def _pil_from_bgr_openvla7b(self, bgr: np.ndarray) -> Image.Image:
         # BGR → RGB → 224×224 → PIL(RGB)
@@ -151,10 +174,7 @@ if __name__ == "__main__":
     wrapper = VLAWrapper(model_name="openvla/openvla-7b")
 
     # Load a small local test image
-    from PIL import Image
-    import base64, cv2, numpy as np
-
-    img = cv2.imread("test.jpg")  # replace with path to any RGB photo
+    img = cv2.imread("test.jpg")
     _, buf = cv2.imencode(".jpg", img)
     img_b64 = base64.b64encode(buf).decode("utf-8")
 

@@ -276,6 +276,23 @@ COPY Bridge/vla_client/launch/multimode_franka.launch.py /root/humble_ws/src/mul
 # returns true when it should not)
 RUN sed -i 's/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kEnforce;/franka::RealtimeConfig rt_config = franka::RealtimeConfig::kIgnore;/' ~/humble_ws/src/multipanda_ros2/franka_hardware/src/real/robot.cpp
 
+# --- TODO dirty patch garmi_controllers bad includes + deps ---
+RUN set -eux; \
+  PKG=~/humble_ws/src/multipanda_ros2/garmi_packages/garmi_controllers; \
+  if [ -d "$PKG" ]; then \
+    find "$PKG" -type f \( -name '*.hpp' -o -name '*.h' -o -name '*.cpp' \) -print0 | xargs -0 sed -i \
+      -e 's#sensor_msgs/sensor_msgs/msg/#sensor_msgs/msg/#g' \
+      -e 's#std_msgs/std_msgs/msg/#std_msgs/msg/#g' \
+      -e 's#geometry_msgs/geometry_msgs/msg/#geometry_msgs/msg/#g'; \
+    CMAKE="$PKG/CMakeLists.txt"; \
+    grep -q 'find_package(std_msgs'     "$CMAKE" || echo 'find_package(std_msgs REQUIRED)'     >> "$CMAKE"; \
+    grep -q 'find_package(sensor_msgs'  "$CMAKE" || echo 'find_package(sensor_msgs REQUIRED)'  >> "$CMAKE"; \
+    # ensure targets depend on these
+    echo 'ament_target_dependencies(garmi_controllers std_msgs sensor_msgs)' >> "$CMAKE"; \
+    XML="$PKG/package.xml"; \
+    grep -q '<depend>std_msgs</depend>'    "$XML" || sed -i 's#</package>#  <depend>std_msgs</depend>\n</package>#' "$XML"; \
+    grep -q '<depend>sensor_msgs</depend>' "$XML" || sed -i 's#</package>#  <depend>sensor_msgs</depend>\n</package>#' "$XML"; \
+  fi
 
 # ENV XDG_RUNTIME_DIR=/tmp/${UID}
 ENV CMAKE_PREFIX_PATH=~/Libraries/libfranka/lib/cmake:~/Libraries/mujoco/lib/cmake

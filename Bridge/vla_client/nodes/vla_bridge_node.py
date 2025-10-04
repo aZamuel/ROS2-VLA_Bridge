@@ -37,8 +37,8 @@ class VLABridgeNode(Node):
         self.declare_parameter('gripper_stop', '/panda_gripper/stop')
         self.declare_parameter('tf_base_frame', 'panda_link0')
         self.declare_parameter('tf_ee_frame', 'panda_hand_tcp')
-        self.declare_parameter('record_timings', False)
-        self.declare_parameter('timings_csv_path', '/tmp/vla_timings.csv')
+        self.declare_parameter('record', False)
+        self.declare_parameter('records_csv_path', '/logs/vla_records.csv')
 
         self.input_image_topic  = self.get_parameter('input_image_topic').value
         self.joint_states_topic = self.get_parameter('joint_states_topic').value
@@ -47,8 +47,8 @@ class VLABridgeNode(Node):
         self.gripper_stop       = self.get_parameter('gripper_stop').value
         self.tf_base_frame      = self.get_parameter('tf_base_frame').value
         self.tf_ee_frame        = self.get_parameter('tf_ee_frame').value
-        self.record_timings     = bool(self.get_parameter('record_timings').value)
-        self.timings_csv_path   = str(self.get_parameter('timings_csv_path').value)
+        self.record             = bool(self.get_parameter('record').value)
+        self.records_csv_path   = str(self.get_parameter('records_csv_path').value)
 
         # Defaults
         self.prompt             = "go up"
@@ -91,16 +91,21 @@ class VLABridgeNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # Create csv file if record_timings is set
+        # Create csv file if record is set
         self._ensure_csv()
 
     def _ensure_csv(self):
-        if not self.record_timings:
+        if not self.record:
             return
-        exists = os.path.exists(self.timings_csv_path)
+        exists = os.path.exists(self.records_csv_path)
         if not exists:
-            with open(self.timings_csv_path, 'w', newline='') as f:
-                csv.writer(f).writerow(["t_client_start", "t_publish", "prompt"])
+            with open(self.records_csv_path, 'w', newline='') as f:
+                csv.writer(f).writerow([
+                    "t_client_start","t_publish",
+                    "t_vla_in","t_vla_out","success","error",
+                    "x","y","z","qx","qy","qz","gw",
+                    "prompt"
+                ])
     
     def generate_dummy_image(self):
         # dummy image and encode once (size is arbitrary here)
@@ -178,7 +183,7 @@ class VLABridgeNode(Node):
         if not self.active:
             return  # Skip if inactive
         
-        if self.record_timings:
+        if self.record:
             t_client_start = time.perf_counter_ns()
     
         if self.latest_image is None or not self.latest_joint_angles:
@@ -196,6 +201,11 @@ class VLABridgeNode(Node):
             response = requests.post(self.backend_url, json=payload)
             if response.status_code == 200:
                 result = response.json()
+                meta = result.get("meta", {})
+                t_vla_in  = meta.get("t_vla_in_ns")
+                t_vla_out = meta.get("t_vla_out_ns")
+                success   = bool(meta.get("success", False))
+                error     = str(meta.get("error", ""))
                 result = self.saturate_delta(result, 0.1, 0.1)
                 self.get_logger().info(
                     f"Request successful"
@@ -206,14 +216,14 @@ class VLABridgeNode(Node):
                     f"pi={result.get('delta_pitch', 0.0):.5f}, "                    
                     f"ya={result.get('delta_yaw', 0.0):.5f}, "
                     f"g={result.get('delta_gripper', 0.0):.5f}"
-                ) # ad {result} when needed
+                )
 
                 current_pose = self.get_current_pose()
                 if current_pose:
                     absolute_pose = self.compute_absolute_pose(current_pose, result)
                     self.publish_pose(absolute_pose)
                 else:
-                    self.get_logger().warn("Skipping publish because current pose is unavailable.")
+                    self.get_logger().warn("Skipping pose publish: current pose is unavailable.")
                 
                 current_width = self.get_current_width()
                 if current_width is not None and "delta_gripper" in result:
@@ -226,14 +236,36 @@ class VLABridgeNode(Node):
                         self.get_logger().info("width difference < 0.001")
                 else:
                     self.get_logger().warn("Skipping gripper publish: current width unavailable or no delta_gripper.")
-                if self.record_timings:
+                if self.record:
                     t_publish = time.perf_counter_ns()
-                    with open(self.timings_csv_path, 'a', newline='') as f:
-                        csv.writer(f).writerow([t_client_start, t_publish, str(self.prompt)])
+                    with open(self.records_csv_path, 'a', newline='') as f:
+                        csv.writer(f).writerow([
+                            t_client_start, t_publish,
+                            t_vla_in, t_vla_out, success, (error or ""),
+                            absolute_pose["x"], absolute_pose["y"], absolute_pose["z"],
+                            absolute_pose["qx"], absolute_pose["qy"], absolute_pose["qz"], absolute_width,
+                            str(self.prompt),
+                        ])
             else:
                 self.get_logger().warn(f"Backend response: {response.status_code}")
+                if self.record:
+                    with open(self.records_csv_path, 'a', newline='') as f:
+                        csv.writer(f).writerow([
+                            t_client_start, time.perf_counter_ns(),
+                            "", "", False, f"http_{response.status_code}",
+                            "", "", "", "", "", "", "",
+                            str(self.prompt)
+                        ])
         except Exception as e:
             self.get_logger().error(f"Failed to send request: {e}")
+            if self.record:
+                with open(self.records_csv_path, 'a', newline='') as f:
+                    csv.writer(f).writerow([
+                        t_client_start, time.perf_counter_ns(),
+                        "", "", False, f"Failed to send request: {e}",
+                        "", "", "", "", "", "", "",
+                        str(self.prompt)
+                    ])
 
     def publish_gripper_width(self, width):
         # publish a Move goal with target width [m].

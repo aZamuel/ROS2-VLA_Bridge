@@ -11,8 +11,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     robot_ip            = LaunchConfiguration("robot_ip")
     backend             = LaunchConfiguration("backend_url")
-    record_timings      = LaunchConfiguration('record_timings')
-    timings_csv_path    = LaunchConfiguration('timings_csv_path')
+    record              = LaunchConfiguration('record')
+    records_csv_path    = LaunchConfiguration('records_csv_path')
 
     profile = LaunchConfiguration("profile")
     profile_yaml = PathJoinSubstitution([
@@ -31,8 +31,8 @@ def generate_launch_description():
             {
                 "backend_url": backend,
                 "request_interval": 0.2,
-                "record_timings": ParameterValue(record_timings, value_type=bool),
-                "timings_csv_path": ParameterValue(timings_csv_path, value_type=str)
+                "record": ParameterValue(record, value_type=bool),
+                "records_csv_path": ParameterValue(records_csv_path, value_type=str)
             }
         ]
     )
@@ -65,8 +65,8 @@ def generate_launch_description():
         DeclareLaunchArgument("robot_ip_1",         default_value="172.16.0.2"),
         DeclareLaunchArgument("backend_url",        default_value="http://localhost:8000/predict"),
         DeclareLaunchArgument("profile",            default_value="real"),
-        DeclareLaunchArgument('record_timings',     default_value='false'),
-        DeclareLaunchArgument('timings_csv_path',   default_value='/tmp/vla_timings.csv'),
+        DeclareLaunchArgument('record',             default_value='false'),
+        DeclareLaunchArgument('records_csv_path',   default_value='/logs/vla_records.csv'),
         SetLaunchConfiguration("robot_ip", robot_ip),
         SetLaunchConfiguration("robot_ip_1", robot_ip),
         franka,
