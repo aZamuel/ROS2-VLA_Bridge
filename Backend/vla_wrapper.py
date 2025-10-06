@@ -24,12 +24,12 @@ logger = logging.getLogger("VLAWrapper")
 HARDCODED = {
     "HARD: go up":          {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
     "HARD: go down":        {"delta_x": 0.0, "delta_y": 0.0, "delta_z": -0.01, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: rol left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: rol right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": -0.5, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: pitch up":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.5, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: pitch down":     {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": -0.5, "delta_yaw": 0.0, "delta_gripper": 0.0},
-    "HARD: yaw left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.5, "delta_gripper": 0.0},
-    "HARD: yaw right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": -0.5, "delta_gripper": 0.0},
+    "HARD: rol left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": -0.05, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: rol right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.05, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: pitch up":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": -0.05, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: pitch down":     {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.05, "delta_yaw": 0.0, "delta_gripper": 0.0},
+    "HARD: yaw left":       {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.05, "delta_gripper": 0.0},
+    "HARD: yaw right":      {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": -0.05, "delta_gripper": 0.0},
     "HARD: open gripper":   {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": 0.05},
     "HARD: close gripper":  {"delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0, "delta_roll": 0.0, "delta_pitch": 0.0, "delta_yaw": 0.0, "delta_gripper": -0.05}
 }
