@@ -15,8 +15,8 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D)
 REQUIRED_COLS = [
     "t_client_start","t_publish","t_vla_in","t_vla_out",
     "success","error",
-    "x","y","z","roll","pitch","yaw",
-    "gripper_width","prompt"
+    "x","y","z","qx","qy","qz",
+    "gw","prompt"
 ]
 
 def ns_to_ms(s): return s.astype("float64") / 1e6
@@ -28,15 +28,15 @@ def load_first50(path: Path) -> pd.DataFrame:
         raise ValueError(f"{path.name}: missing columns: {missing}")
     df = df.head(50).copy()
     # force dtypes
-    num_cols = ["t_client_start_ns","t_publish_ns","t_vla_in_ns","t_vla_out_ns","x","y","z","roll","pitch","yaw","gripper_width","success"]
+    num_cols = ["t_client_start","t_publish","t_vla_in","t_vla_out","x","y","z","qx","qy","qz","gw","success"]
     for c in num_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")
     df["error"] = df["error"].astype(str).fillna("")
     df["prompt"] = df["prompt"].astype(str).fillna("")
     # derived latencies (ms)
-    df["e2e_ms"]      = ns_to_ms(df["t_publish_ns"] - df["t_client_start_ns"])
-    df["backend_ms"]  = ns_to_ms(df["t_vla_out_ns"] - df["t_vla_in_ns"])
-    df["outbound_ms"] = ns_to_ms(df["t_vla_in_ns"] - df["t_client_start_ns"])
+    df["e2e_ms"]      = ns_to_ms(df["t_publish"] - df["t_client_start"])
+    df["backend_ms"]  = ns_to_ms(df["t_vla_out"] - df["t_vla_in"])
+    df["outbound_ms"] = ns_to_ms(df["t_vla_in"] - df["t_client_start"])
     # basic sanity mask (keep but mark invalid)
     df["_valid"] = np.isfinite(df["e2e_ms"]) & np.isfinite(df["backend_ms"]) & np.isfinite(df["outbound_ms"])
     return df
