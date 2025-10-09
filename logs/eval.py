@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+import math
 
 REQUIRED_COLS = [
     "t_client_start","t_publish","t_vla_in","t_vla_out",
@@ -140,6 +141,92 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
     plt.savefig(outpath)  # no bbox_inches="tight" to avoid CL warnings
     plt.close()
 
+def _recover_w_from_xyz(qx, qy, qz):
+    # assumes near-unit quaternion; clamp to avoid tiny negatives
+    ww = max(0.0, 1.0 - (qx*qx + qy*qy + qz*qz))
+    return math.sqrt(ww)
+
+def _normalize_quat(q):
+    n = math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3])
+    return (q[0]/n, q[1]/n, q[2]/n, q[3]/n) if n > 0 else (1.0, 0.0, 0.0, 0.0)
+
+def _ensure_continuity(prev, cur):
+    # flip sign if dot<0 to avoid 180° jumps
+    dot = sum(p*c for p, c in zip(prev, cur))
+    return tuple(-c for c in cur) if dot < 0 else cur
+
+def _quat_to_euler_zyx(w, x, y, z):
+    # returns roll(x), pitch(y), yaw(z) in radians
+    # ZYX (intrinsic) — yaw(Z), pitch(Y), roll(X)
+    t0 = 2.0 * (w*x + y*z)
+    t1 = 1.0 - 2.0 * (x*x + y*y)
+    roll = math.atan2(t0, t1)
+
+    t2 = 2.0 * (w*y - z*x)
+    t2 = max(-1.0, min(1.0, t2))  # clamp for asin
+    pitch = math.asin(t2)
+
+    t3 = 2.0 * (w*z + x*y)
+    t4 = 1.0 - 2.0 * (y*y + z*z)
+    yaw = math.atan2(t3, t4)
+    return roll, pitch, yaw
+
+def save_angles_plot(df: pd.DataFrame, title: str, outpath: Path):
+    qxs = df["qx"].to_numpy(dtype=float)
+    qys = df["qy"].to_numpy(dtype=float)
+    qzs = df["qz"].to_numpy(dtype=float)
+    if len(qxs) == 0 or not (np.isfinite(qxs).any() and np.isfinite(qys).any() and np.isfinite(qzs).any()):
+        return
+
+    # Build normalized, sign-continuous quaternions
+    quats = []
+    for i in range(len(qxs)):
+        w = _recover_w_from_xyz(qxs[i], qys[i], qzs[i])
+        q = _normalize_quat((w, qxs[i], qys[i], qzs[i]))
+        if i > 0:
+            q = _ensure_continuity(quats[-1], q)
+        quats.append(q)
+
+    # Quaternion -> Euler ZYX (rad), unwrap, then wrap to [0, 2π]
+    rolls, pitchs, yaws = [], [], []
+    for (w, x, y, z) in quats:
+        r, p, y_ = _quat_to_euler_zyx(w, x, y, z)
+        rolls.append(r); pitchs.append(p); yaws.append(y_)
+    rolls = np.unwrap(np.array(rolls))
+    pitchs = np.unwrap(np.array(pitchs))
+    yaws = np.unwrap(np.array(yaws))
+
+    two_pi = 2.0 * np.pi
+    rolls_w  = np.mod(rolls,  two_pi)
+    pitchs_w = np.mod(pitchs, two_pi)
+    yaws_w   = np.mod(yaws,   two_pi)
+
+    # Legend numbers: "<start>→<end> rad" (wrapped values)
+    lab_roll  = f"roll: {rolls_w[0]:.3f}→{rolls_w[-1]:.3f} rad"
+    lab_pitch = f"pitch: {pitchs_w[0]:.3f}→{pitchs_w[-1]:.3f} rad"
+    lab_yaw   = f"yaw: {yaws_w[0]:.3f}→{yaws_w[-1]:.3f} rad"
+
+    fig = plt.figure(figsize=(7.0, 3.6), constrained_layout=True)
+    ax = fig.add_subplot(111)
+    x = np.arange(1, len(rolls_w) + 1)
+
+    ax.plot(x, rolls_w,  linewidth=1.2, label=lab_roll)
+    ax.plot(x, pitchs_w, linewidth=1.2, label=lab_pitch)
+    ax.plot(x, yaws_w,   linewidth=1.2, label=lab_yaw)
+
+    ax.set_xlabel("request idx")
+    ax.set_ylabel("angle [rad]")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+
+    # Fix y-axis to [0, 2π]
+    ax.set_ylim(0.0, two_pi)
+
+    ax.legend(loc="best", fontsize=8, frameon=True)
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(outpath)
+    plt.close()
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--one", type=str, default=None, help="Process a single CSV file (path).")
@@ -175,6 +262,7 @@ def main():
 
         # Only trajectory plot, fixed axes
         save_traj3d(df, f"Trajectory (first 50) — {record_id}", figs / f"traj3d_{record_id}.pdf")
+        save_angles_plot(df, f"Angles (ZYX) — {record_id}",     figs / f"angles_{record_id}.pdf")
 
     if not per_rows:
         print("No valid files processed.", file=sys.stderr)
