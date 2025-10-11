@@ -56,32 +56,66 @@ def quantiles(series: pd.Series):
         "max": float(s.max()),
     }
 
+def _mean_p95(series: pd.Series):
+    s = series.dropna().to_numpy(dtype=float)
+    if s.size == 0:
+        return (np.nan, np.nan)
+    return float(np.mean(s)), float(np.quantile(s, 0.95))
+
+def _build_unit_quats_contiguous(df: pd.DataFrame):
+    qxs = df["qx"].to_numpy(dtype=float)
+    qys = df["qy"].to_numpy(dtype=float)
+    qzs = df["qz"].to_numpy(dtype=float)
+    quats = []
+    for i in range(len(qxs)):
+        w = _recover_w_from_xyz(qxs[i], qys[i], qzs[i])
+        q = _normalize_quat((w, qxs[i], qys[i], qzs[i]))
+        if i > 0:
+            q = _ensure_continuity(quats[-1], q)
+        quats.append(q)
+    return quats
+
+def _rotation_path_length_rad(quats):
+    # Geodesic angle on SO(3): 2*acos(|dot(q_i, q_{i+1})|)
+    if len(quats) < 2: 
+        return np.nan
+    total = 0.0
+    for i in range(len(quats)-1):
+        w1,x1,y1,z1 = quats[i]
+        w2,x2,y2,z2 = quats[i+1]
+        dot = w1*w2 + x1*x2 + y1*y2 + z1*z2
+        dot = max(-1.0, min(1.0, abs(dot)))
+        total += 2.0 * math.acos(dot)
+    return float(total)
+
+def _translation_path_length_m(df: pd.DataFrame):
+    xs = df["x"].to_numpy(dtype=float)
+    ys = df["y"].to_numpy(dtype=float)
+    zs = df["z"].to_numpy(dtype=float)
+    if len(xs) < 2:
+        return np.nan
+    # valid consecutive pairs only
+    total = 0.0
+    for i in range(len(xs)-1):
+        if np.all(np.isfinite([xs[i],ys[i],zs[i], xs[i+1],ys[i+1],zs[i+1]])):
+            dx = xs[i+1]-xs[i]; dy = ys[i+1]-ys[i]; dz = zs[i+1]-zs[i]
+            total += float(math.sqrt(dx*dx + dy*dy + dz*dz))
+    return total if total > 0.0 else 0.0
+
 def summarize_basic(df: pd.DataFrame, record_id: str):
-    out = {"record_id": record_id, "n_rows": int(len(df))}
-    # keep existing per-file summary for convenience
-    for name, col in [("e2e","e2e_ms"), ("backend","backend_ms"), ("outbound","outbound_ms")]:
-        s = df[col].dropna()
-        if s.empty:
-            stats = {f"{name}_count": 0}
-        else:
-            q = s.quantile([0.5,0.95,0.99])
-            stats = {
-                f"{name}_count": int(s.size),
-                f"{name}_mean_ms": float(s.mean()),
-                f"{name}_std_ms": float(s.std(ddof=1)) if s.size > 1 else 0.0,
-                f"{name}_median_ms": float(q.loc[0.5]),
-                f"{name}_p95_ms": float(q.loc[0.95]),
-                f"{name}_p99_ms": float(q.loc[0.99]),
-                f"{name}_min_ms": float(s.min()),
-                f"{name}_max_ms": float(s.max()),
-            }
-        out.update(stats)
-    out["success_rate"] = float((df["success"] == 1).mean()) if len(df) else 0.0
-    err = df.loc[df["success"] != 1, "error"].value_counts().head(3)
-    for i, (name, cnt) in enumerate(err.items(), start=1):
-        out[f"err{i}_name"] = str(name)
-        out[f"err{i}_count"] = int(cnt)
-    return out
+    row = {"record_id": record_id, "n_rows": int(len(df))}
+    # timings (ms): mean + p95 only
+    for name, col in [("e2e", "e2e_ms"), ("backend","backend_ms"), ("outbound","outbound_ms")]:
+        mean_ms, p95_ms = _mean_p95(df[col])
+        row[f"{name}_mean_ms"] = mean_ms
+        row[f"{name}_p95_ms"]  = p95_ms
+    # success rate
+    row["success_rate"] = float((df["success"] == 1).mean()) if len(df) else np.nan
+    # motion totals
+    row["trans_total_m"] = _translation_path_length_m(df)
+    quats = _build_unit_quats_contiguous(df)
+    row["rot_total_rad"] = _rotation_path_length_rad(quats)
+    return row
 
 def save_per_record_kpis(df: pd.DataFrame, outpath: Path):
     rows = {
@@ -268,10 +302,17 @@ def main():
         print("No valid files processed.", file=sys.stderr)
         sys.exit(3)
 
-    # Keep the summaries (useful for LaTeX overall tables)
-    pd.DataFrame(per_rows).sort_values("record_id").to_csv(data_dir / "summary_per_file.csv", index=False)
+    # summaries
     all_df = pd.concat(combined_50, ignore_index=True)
+
+    # per-file (rounded to 3 decimals on write)
+    per_df = pd.DataFrame(per_rows).sort_values("record_id").round(3)
+    per_df.to_csv(data_dir / "summary_per_file.csv", index=False, float_format="%.3f")
+
+    # overall
     overall = summarize_basic(all_df, record_id="ALL_FIRST50")
+    overall_df = pd.DataFrame([overall]).round(3)
+    overall_df.to_csv(data_dir / "summary_overall.csv", index=False, float_format="%.3f")
     pd.DataFrame([overall]).to_csv(data_dir / "summary_overall.csv", index=False)
 
     print(f"✔ Per-record KPIs in {data_dir}/kpis_<record>.csv (ms, rounded to 3 decimals)")
