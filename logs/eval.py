@@ -11,6 +11,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+import matplotlib as mpl
+mpl.rcParams.update({
+    "font.size": 12,          # base size for everything 12 default
+    "axes.labelsize": 22,     # axis labels
+    "xtick.labelsize": 20,
+    "ytick.labelsize": 20,
+    "legend.fontsize": 20,
+    "pdf.fonttype": 42,       # embed TrueType (crisper in PDF viewers)
+    "ps.fonttype": 42,
+    "axes.labelpad": 16,      # default ~4.0
+    "xtick.major.pad": 6,    # default ~3.5
+    "ytick.major.pad": 6,    # default ~3.5
+})
 import math
 
 REQUIRED_COLS = [
@@ -152,7 +165,7 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
     ax.scatter(xs[-1], ys[-1], zs[-1], s=48, marker="^", label=end_lbl)
 
     ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]"); ax.set_zlabel("z [m]")
-    ax.set_title(title)
+    # ax.set_title(title)
 
     # Equal-aspect first so axis limits are stable:
     fig.canvas.draw()
@@ -169,7 +182,7 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
     ax.scatter(xs[0], ys[0], z_floor, s=20, marker="o")
     ax.scatter(xs[-1], ys[-1], z_floor, s=24, marker="^")
 
-    ax.legend(loc="best", fontsize=8, frameon=True)
+    ax.legend(loc="best", fontsize=16, frameon=True)
 
     outpath.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(outpath)  # no bbox_inches="tight" to avoid CL warnings
@@ -250,13 +263,13 @@ def save_angles_plot(df: pd.DataFrame, title: str, outpath: Path):
 
     ax.set_xlabel("request idx")
     ax.set_ylabel("angle [rad]")
-    ax.set_title(title)
+    # ax.set_title(title)
     ax.grid(True, alpha=0.3)
 
     # Fix y-axis to [0, 2π]
     ax.set_ylim(0.0, two_pi)
 
-    ax.legend(loc="best", fontsize=8, frameon=True)
+    ax.legend(loc="best", fontsize=16, frameon=True)
     outpath.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(outpath)
     plt.close()
@@ -294,7 +307,7 @@ def main():
         # New per-record KPI CSV (rounded)
         save_per_record_kpis(df, data_dir / f"kpis_{record_id}.csv")
 
-        # Only trajectory plot, fixed axes
+        # Trajectory plot, fixed axes
         save_traj3d(df, f"Trajectory (first 50) — {record_id}", figs / f"traj3d_{record_id}.pdf")
         save_angles_plot(df, f"Angles (ZYX) — {record_id}",     figs / f"angles_{record_id}.pdf")
 
