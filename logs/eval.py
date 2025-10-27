@@ -14,14 +14,14 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 import matplotlib as mpl
 mpl.rcParams.update({
     "font.size": 12,          # base size for everything 12 default
-    "axes.labelsize": 22,     # axis labels
+    "axes.labelsize": 20,     # axis labels
     "xtick.labelsize": 20,
     "ytick.labelsize": 20,
-    "legend.fontsize": 20,
+    "legend.fontsize": 16,
     "pdf.fonttype": 42,       # embed TrueType (crisper in PDF viewers)
     "ps.fonttype": 42,
-    "axes.labelpad": 16,      # default ~4.0
-    "xtick.major.pad": 6,    # default ~3.5
+    "axes.labelpad": 22,      # default ~4.0
+    "xtick.major.pad": 10,    # default ~3.5
     "ytick.major.pad": 6,    # default ~3.5
 })
 import math
@@ -154,7 +154,7 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
     if not (np.isfinite(xs).any() and np.isfinite(ys).any() and np.isfinite(zs).any()):
         return
 
-    fig = plt.figure(figsize=(6.5, 5.5), constrained_layout=True)
+    fig = plt.figure(figsize=(6.5,5.5))
     ax = fig.add_subplot(111, projection="3d")
 
     # Main trajectory + endpoints
@@ -166,6 +166,10 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
 
     ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]"); ax.set_zlabel("z [m]")
     # ax.set_title(title)
+
+    ax.xaxis.set_major_locator(plt.MaxNLocator(4))  # limits to 6 x-ticks
+    ax.yaxis.set_major_locator(plt.MaxNLocator(5))  # limits to 6 x-ticks
+    ax.zaxis.set_major_locator(plt.MaxNLocator(6))  # limits to 6 x-ticks
 
     # Equal-aspect first so axis limits are stable:
     fig.canvas.draw()
@@ -182,10 +186,10 @@ def save_traj3d(df: pd.DataFrame, title: str, outpath: Path):
     ax.scatter(xs[0], ys[0], z_floor, s=20, marker="o")
     ax.scatter(xs[-1], ys[-1], z_floor, s=24, marker="^")
 
-    ax.legend(loc="best", fontsize=16, frameon=True)
+    ax.legend(loc="best", frameon=True, borderpad=0.1, labelspacing=0.1)       # thinner frame padding
 
     outpath.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(outpath)  # no bbox_inches="tight" to avoid CL warnings
+    plt.savefig(outpath, bbox_inches="tight", pad_inches=0.35)
     plt.close()
 
 def _recover_w_from_xyz(qx, qy, qz):
